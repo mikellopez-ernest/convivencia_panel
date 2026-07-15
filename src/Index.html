@@ -155,6 +155,22 @@
             <h1 class="h3 mb-1">Equip 3R</h1>
             <p id="thirdMonthLabel" class="text-secondary mb-0">Calendari mensual.</p>
           </header>
+          <section class="card shadow-sm">
+            <div class="card-body">
+              <div class="d-flex align-items-end gap-2">
+                <button id="thirdPrevMonth" class="btn btn-outline-secondary" type="button" aria-label="Mes anterior" title="Mes anterior">
+                  <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                </button>
+                <div class="flex-grow-1">
+                  <label for="thirdMonthSelect" class="form-label">Mes</label>
+                  <select id="thirdMonthSelect" class="form-select"></select>
+                </div>
+                <button id="thirdNextMonth" class="btn btn-outline-secondary" type="button" aria-label="Mes següent" title="Mes següent">
+                  <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                </button>
+              </div>
+            </div>
+          </section>
           <section id="thirdEmpty" class="alert alert-info d-none mb-0"></section>
           <section class="card shadow-sm">
             <div class="card-body p-0">
@@ -167,8 +183,6 @@
                       <th>Dimecres</th>
                       <th>Dijous</th>
                       <th>Divendres</th>
-                      <th>Dissabte</th>
-                      <th>Diumenge</th>
                     </tr>
                   </thead>
                   <tbody id="thirdMonthRows"></tbody>
@@ -356,8 +370,16 @@
           </div>
           <div class="modal-body">
             <div id="thirdProjectAlert" class="alert d-none"></div>
-            <label for="thirdProjectCount" class="form-label">Nombre de sessions</label>
-            <input id="thirdProjectCount" class="form-control" type="number" min="1" step="1" value="1">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label for="thirdProjectCount" class="form-label">Nombre de sessions</label>
+                <input id="thirdProjectCount" class="form-control" type="number" min="1" step="1" value="1">
+              </div>
+              <div class="col-md-6">
+                <label for="thirdProjectStartDate" class="form-label">Data d'inici</label>
+                <input id="thirdProjectStartDate" class="form-control" type="text" autocomplete="off">
+              </div>
+            </div>
             <div class="table-responsive mt-3">
               <table class="table table-bordered align-middle">
                 <thead class="table-light">

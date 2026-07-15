@@ -114,6 +114,7 @@ the app must ask for `Equip 3R` scheduling data.
 Popup layout:
 
 - Numeric picker at the top.
+- Spanish-format date picker below/near the numeric picker.
 - A `5 x 5` table below it.
 - Floating Save button using the same style as the other app save buttons.
 
@@ -125,6 +126,18 @@ Rules:
 - Represents how many available cells the user must select.
 - If the selected-cell count does not equal this number, do not allow save.
 - The app should show a clear validation message when the count is wrong.
+
+### Start Date Picker
+
+Rules:
+
+- The popup includes a Spanish-format date picker, using the same behavior as the other app date pickers.
+- Display/input format: `dd/mm/yyyy`.
+- Calendar week starts on Monday.
+- Default value: today.
+- This date controls where the 4-week availability grid starts.
+- Changing this date reloads/rebuilds the availability table from the selected start date.
+- The date picker does not write directly to `3r_project`; only selected table cells are saved.
 
 ### Availability Table
 
@@ -158,10 +171,11 @@ The popup is opened while editing/saving from the main page.
 
 Rules:
 
-- Use the actual current day when building the visible grid.
-- Show future availability starting after today.
-- If today is Tuesday, the Monday and Tuesday cells of the first week are empty, and the first visible selectable day is Wednesday.
-- More generally, any weekday earlier than or equal to today in the first week should be empty.
+- Use the popup start-date picker when building the visible grid.
+- Default start date is today.
+- Show availability starting from the selected start date.
+- If the selected start date is Tuesday, the first row's Monday cell is empty, and the first possible cell is Tuesday.
+- More generally, weekdays earlier than the selected start date in the first week should be empty.
 - The following rows continue week by week.
 - Dates should be shown only for weekdays Monday through Friday.
 - Empty cells must not be selectable.
@@ -187,6 +201,7 @@ For each visible date:
 - Look for an existing `3r_project` row where `date` equals the cell date.
 - If found, show `3r_project`.`student` in the cell.
 - A cell with an existing student is not selectable.
+- A cell with an existing student must be visually highlighted in green.
 - If multiple rows exist for the same date, show all student names or surface that the date has multiple assigned students; do not allow selecting that cell unless a future spec supports multiple students per date.
 
 ### Selection Rules
@@ -227,13 +242,50 @@ Rules:
 
 - Show one complete month at a time, laid out like a calendar.
 - Default month is the current month.
+- Show only weekdays Monday through Friday.
+- Do not render Saturday or Sunday columns.
 - Each visible weekday cell should show:
   - date in `dd/mm/yyyy` format
   - configured teacher for that weekday from `config`.`3r day` / `config`.`3r teacher`
   - existing student assignment from `3r_project`, when present
   - an `aprofitament` combobox for each existing assignment
-- Weekend cells may be shown as empty/non-working days or visually muted.
 - The page should use the global busy indicator while loading month data.
+
+### Month Navigation
+
+At the top of the `Equip 3R` page, show:
+
+- left arrow button
+- month combobox
+- right arrow button
+
+Month combobox values must be Catalan month names:
+
+```text
+Gener
+Febrer
+Març
+Abril
+Maig
+Juny
+Juliol
+Agost
+Setembre
+Octubre
+Novembre
+Desembre
+```
+
+Rules:
+
+- Default selected month is the current month.
+- The left arrow moves one month backward.
+- The right arrow moves one month forward.
+- Changing the combobox reloads the calendar for that month.
+- Month navigation preserves the selected year internally.
+- If the user moves from January backward, year decreases by one and month becomes December.
+- If the user moves from December forward, year increases by one and month becomes January.
+- The calendar body reloads after every month/year change.
 
 ### Outcome Combobox
 
@@ -269,24 +321,26 @@ Rules:
 2. If `Mesura` is not `Equip 3R`, do not write `3r_project`.
 3. If `Mesura` is `Equip 3R`, open the popup.
 4. Load `config`.`3r day` / `config`.`3r teacher` mappings.
-5. Load existing `3r_project` rows for the visible 4-week range.
-6. Render the 5 x 5 table.
-7. User selects exactly the requested number of available cells.
-8. On Save, validate selection.
-9. Open `Incidències` -> `3r_project`.
-10. Validate required headers.
-11. Append one row per selected date.
+5. Show the popup start-date picker with today selected by default.
+6. Load existing `3r_project` rows for the visible 4-week range starting from the selected start date.
+7. Render the 5 x 5 table.
+8. User selects exactly the requested number of available cells.
+9. On Save, validate selection.
+10. Open `Incidències` -> `3r_project`.
+11. Validate required headers.
+12. Append one row per selected date.
 
 ## Minimal Page Flow
 
 1. User selects `Equip 3R` from the left navigation menu.
 2. Show the app shell and global busy indicator.
-3. Load config teacher availability.
-4. Load `3r_project` rows for the visible month.
-5. Render the full-month calendar.
-6. User edits `aprofitament` comboboxes.
-7. On floating Save, validate edited values.
-8. Update only changed `aprofitament` cells in existing rows.
+3. Show month navigation with the current month selected.
+4. Load config teacher availability.
+5. Load `3r_project` rows for the visible month.
+6. Render the full-month weekday-only calendar.
+7. User edits `aprofitament` comboboxes.
+8. On floating Save, validate edited values.
+9. Update only changed `aprofitament` cells in existing rows.
 
 ## Privacy
 

@@ -3,6 +3,7 @@
         picker: null,
         historicPicker: null,
         tuesdayPicker: null,
+        thirdProjectStartPicker: null,
         importModal: null,
         studentDetailModal: null,
         studyGroupModal: null,
@@ -16,6 +17,8 @@
         historicRecords: [],
         tuesdayComments: {},
         thirdProjectOutcomes: {},
+        thirdMonth: new Date().getMonth(),
+        thirdYear: new Date().getFullYear(),
         expulsionRecords: [],
         expulsionSearchTimer: null,
         pageLoaded: {},
@@ -29,6 +32,21 @@
         currentDate: '',
         currentPage: 'home'
       };
+
+      const CATALAN_MONTHS = [
+        'Gener',
+        'Febrer',
+        'Març',
+        'Abril',
+        'Maig',
+        'Juny',
+        'Juliol',
+        'Agost',
+        'Setembre',
+        'Octubre',
+        'Novembre',
+        'Desembre'
+      ];
 
       const Api = {
         call(name, args = [], options = {}) {
@@ -96,6 +114,13 @@
           disableMobile: false,
           onChange: (_selectedDates, dateStr) => loadTuesdaySessions(dateStr)
         });
+        state.thirdProjectStartPicker = flatpickr('#thirdProjectStartDate', {
+          dateFormat: 'd/m/Y',
+          locale: flatpickr.l10ns.es,
+          defaultDate: new Date(),
+          disableMobile: false,
+          onChange: (_selectedDates, dateStr) => reloadThirdProjectAvailability(dateStr)
+        });
         flatpickr('.expulsion-date', {
           dateFormat: 'd/m/Y',
           locale: flatpickr.l10ns.es,
@@ -113,6 +138,9 @@
         document.getElementById('historicGroup').addEventListener('change', renderHistoricRows);
         document.getElementById('historicStudent').addEventListener('input', renderHistoricRows);
         document.getElementById('expulsionSearch').addEventListener('input', handleExpulsionSearchInput);
+        document.getElementById('thirdPrevMonth').addEventListener('click', () => shiftThirdMonth(-1));
+        document.getElementById('thirdNextMonth').addEventListener('click', () => shiftThirdMonth(1));
+        document.getElementById('thirdMonthSelect').addEventListener('change', handleThirdMonthSelect);
         document.getElementById('studyGroupCount').addEventListener('input', renderStudyGroupDateInputs);
         document.getElementById('saveStudyGroupButton').addEventListener('click', saveStudyGroupFromModal);
         document.getElementById('saveThirdProjectButton').addEventListener('click', saveThirdProjectFromModal);
@@ -131,6 +159,7 @@
         });
 
         loadPayload();
+        populateThirdMonthSelect();
       });
 
       function loadPayload(dateText) {
@@ -285,9 +314,39 @@
       }
 
       function loadThirdProjectMonth() {
-        Api.call('getThirdProjectMonthPayload', [''])
+        Api.call('getThirdProjectMonthPayload', [formatClientDate(new Date(state.thirdYear, state.thirdMonth, 1))])
           .then(renderThirdProjectMonth)
           .catch((error) => showAlert(error.message || String(error), 'danger'));
+      }
+
+      function populateThirdMonthSelect() {
+        const select = document.getElementById('thirdMonthSelect');
+
+        if (!select) {
+          return;
+        }
+
+        select.innerHTML = '';
+        CATALAN_MONTHS.forEach((month, index) => {
+          const option = document.createElement('option');
+          option.value = String(index);
+          option.textContent = month;
+          select.appendChild(option);
+        });
+        select.value = String(state.thirdMonth);
+      }
+
+      function shiftThirdMonth(delta) {
+        const next = new Date(state.thirdYear, state.thirdMonth + delta, 1);
+        state.thirdYear = next.getFullYear();
+        state.thirdMonth = next.getMonth();
+        document.getElementById('thirdMonthSelect').value = String(state.thirdMonth);
+        loadThirdProjectMonth();
+      }
+
+      function handleThirdMonthSelect(event) {
+        state.thirdMonth = Number(event.target.value);
+        loadThirdProjectMonth();
       }
 
       function renderThirdProjectMonth(payload) {
@@ -298,7 +357,16 @@
 
         state.thirdProjectOutcomes = {};
         state.pageLoaded.third = true;
-        document.getElementById('thirdMonthLabel').textContent = payload.monthLabel ? `Calendari ${payload.monthLabel}` : 'Calendari mensual.';
+        if (Number.isInteger(payload.month)) {
+          state.thirdMonth = payload.month;
+          document.getElementById('thirdMonthSelect').value = String(state.thirdMonth);
+        }
+
+        if (Number.isInteger(payload.year)) {
+          state.thirdYear = payload.year;
+        }
+
+        document.getElementById('thirdMonthLabel').textContent = `${CATALAN_MONTHS[state.thirdMonth]} ${state.thirdYear}`;
 
         const tbody = document.getElementById('thirdMonthRows');
         const empty = document.getElementById('thirdEmpty');
@@ -312,14 +380,14 @@
           week.forEach((cell) => {
             const td = document.createElement('td');
             td.className = 'calendar-cell';
-            td.classList.toggle('calendar-cell-muted', !cell.inMonth || cell.weekend);
+            td.classList.toggle('calendar-cell-muted', !cell.inMonth);
 
             const date = document.createElement('div');
             date.className = 'fw-semibold';
             date.textContent = cell.inMonth ? cell.date : '';
             td.appendChild(date);
 
-            if (cell.inMonth && !cell.weekend) {
+            if (cell.inMonth) {
               const teacher = document.createElement('div');
               teacher.className = 'small text-secondary';
               teacher.textContent = cell.teacher || 'Sense professor';
@@ -986,6 +1054,18 @@
         state.thirdProjectSelectedDates = [];
         document.getElementById('thirdProjectAlert').className = 'alert d-none';
         document.getElementById('thirdProjectCount').value = '1';
+        if (state.thirdProjectStartPicker) {
+          state.thirdProjectStartPicker.setDate(new Date(), false);
+        }
+        reloadThirdProjectAvailability(document.getElementById('thirdProjectStartDate').value || formatClientDate(new Date()));
+      }
+
+      function reloadThirdProjectAvailability(startDateText) {
+        if (!state.specialFlowPending) {
+          return;
+        }
+
+        state.thirdProjectSelectedDates = [];
         setLoading(true);
         google.script.run
           .withSuccessHandler((payload) => {
@@ -996,7 +1076,7 @@
             setLoading(false);
             abortSpecialFlow(error.message || String(error));
           })
-          .getThirdProjectAvailabilityPayload();
+          .getThirdProjectAvailabilityPayload(startDateText || '');
       }
 
       function renderThirdProjectAvailability(payload) {
@@ -1022,6 +1102,7 @@
 
               if (studentNames.length) {
                 lines.push(studentNames.join(', '));
+                td.classList.add('occupied-cell');
               } else if (cell.selectable) {
                 const wrapper = document.createElement('label');
                 const radio = document.createElement('input');

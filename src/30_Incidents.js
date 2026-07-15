@@ -637,12 +637,14 @@ function saveStudyGroupStudents_(studentName, dates) {
   return { ok: true, status: 'saved', message: STRINGS.studyGroup.saved, savedCount: rows.length };
 }
 
-function buildThirdProjectAvailabilityPayload_() {
+function buildThirdProjectAvailabilityPayload_(startDateText) {
   const config = loadIncidentConfig_();
   assertAuthorized_(config);
 
-  const today = todayDateOnly_();
-  const monday = startOfWeekMonday_(today);
+  const startDate = startDateText
+    ? parseDateOnly_(startDateText, '3R start date')
+    : todayDateOnly_();
+  const monday = startOfWeekMonday_(startDate);
   const existingByDate = loadThirdProjectAssignmentsByDate_(monday, addDays_(monday, 27));
   const rows = [];
 
@@ -653,16 +655,16 @@ function buildThirdProjectAvailabilityPayload_() {
       const date = addDays_(monday, week * 7 + dayIndex);
       const dateKey = formatDateOnly_(date);
       const weekday = WEEKDAY_KEYS[dayIndex];
-      const isPastOrTodayInFirstWeek = week === 0 && date.getTime() <= today.getTime();
+      const isBeforeStartDateInFirstWeek = week === 0 && date.getTime() < startDate.getTime();
       const teacher = config.thirdProjectTeachers[weekday] || '';
       const existing = existingByDate[dateKey] || [];
 
       cells.push({
         weekday: weekday,
-        date: isPastOrTodayInFirstWeek ? '' : dateKey,
-        teacher: isPastOrTodayInFirstWeek ? '' : teacher,
-        students: isPastOrTodayInFirstWeek ? [] : existing,
-        selectable: !isPastOrTodayInFirstWeek && Boolean(teacher) && !existing.length
+        date: isBeforeStartDateInFirstWeek ? '' : dateKey,
+        teacher: isBeforeStartDateInFirstWeek ? '' : teacher,
+        students: isBeforeStartDateInFirstWeek ? [] : existing,
+        selectable: !isBeforeStartDateInFirstWeek && Boolean(teacher) && !existing.length
       });
     }
 
@@ -672,6 +674,7 @@ function buildThirdProjectAvailabilityPayload_() {
   return {
     ok: true,
     status: 'ok',
+    startDate: formatDateOnly_(startDate),
     rows: rows
   };
 }
@@ -772,16 +775,15 @@ function buildThirdProjectMonthPayload_(monthDateText) {
   while (cursor.getTime() <= calendarEnd.getTime()) {
     const cells = [];
 
-    for (let day = 0; day < 7; day += 1) {
+    for (let day = 0; day < 5; day += 1) {
       const date = addDays_(cursor, day);
       const dateKey = formatDateOnly_(date);
-      const weekdayIndex = date.getDay() === 0 ? 6 : date.getDay() - 1;
+      const weekdayIndex = date.getDay() - 1;
       const weekday = WEEKDAY_KEYS[weekdayIndex] || '';
 
       cells.push({
         date: dateKey,
         inMonth: date.getMonth() === monthStart.getMonth(),
-        weekend: day > 4,
         weekday: weekday,
         teacher: weekday ? (config.thirdProjectTeachers[weekday] || '') : '',
         assignments: existingByDate[dateKey] || []
@@ -797,6 +799,8 @@ function buildThirdProjectMonthPayload_(monthDateText) {
     status: 'ok',
     activeUser: activeUser,
     monthDate: formatDateOnly_(monthStart),
+    month: monthStart.getMonth(),
+    year: monthStart.getFullYear(),
     monthLabel: Utilities.formatDate(monthStart, Session.getScriptTimeZone(), 'MM/yyyy'),
     weeks: weeks,
     outcomeOptions: [

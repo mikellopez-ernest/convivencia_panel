@@ -62,9 +62,9 @@ function saveStudyGroupStudents(studentName, dates) {
   });
 }
 
-function getThirdProjectAvailabilityPayload() {
+function getThirdProjectAvailabilityPayload(startDateText) {
   return runWebAction_(function() {
-    return buildThirdProjectAvailabilityPayload_();
+    return buildThirdProjectAvailabilityPayload_(startDateText);
   });
 }
 

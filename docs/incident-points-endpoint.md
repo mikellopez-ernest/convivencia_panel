@@ -349,6 +349,7 @@ Equip 3R
 Popup layout:
 
 - A positive non-zero integer number picker at the top.
+- A Spanish-format date picker, defaulting to today, used as the grid start date.
 - A `5 x 5` table below it.
 - A floating Save button using the same style as other app save buttons.
 
@@ -372,15 +373,17 @@ Table rules:
   - teacher name from `config`.`3r teacher` for that weekday
   - existing student from `3r_project` for that date, or a selectable radio button in the top-right corner if no student exists
 - If a cell is selectable and the user selects it, the cell turns orange.
+- If a cell is already occupied by an existing `3r_project` row, the cell is highlighted green.
 - Empty cells are not selectable.
 - Cells with existing students are not selectable.
 - Cells without a configured teacher are not selectable.
 
 Date range rules:
 
-- Build the grid starting from the actual current day, not from the main page selected date.
-- Show only future available days after today in the first week.
-- Example: if today is Tuesday, the first row's Monday and Tuesday cells are empty, and the first possible cell is Wednesday.
+- Build the grid starting from the popup start-date picker, not from the main page selected date.
+- The popup start-date picker defaults to today.
+- Show available days from the selected start date in the first week.
+- Example: if the selected start date is Tuesday, the first row's Monday cell is empty, and the first possible cell is Tuesday.
 - Subsequent rows continue week by week.
 
 Teacher mapping:
