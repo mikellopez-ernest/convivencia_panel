@@ -1,0 +1,228 @@
+# Meeting Records Spec
+
+Project table:
+
+| Logical table | Sheet |
+| --- | --- |
+| `Incidències` | `meeting_records` |
+
+Access pattern:
+
+```javascript
+const sheet = openTableSheet_('Incidències', 'meeting_records');
+```
+
+This sheet stores meeting/intervention records for students, including the student's points at the moment or period being reviewed, a free comment, and the restorative measure assigned.
+
+The main incident-points endpoint can append rows to this sheet from edited rows in the student points table.
+
+## Headers
+
+Row 1 contains headers. Data starts in row 2.
+
+Required headers, in current order:
+
+| Column | Header |
+| --- | --- |
+| A | `Id` |
+| B | `Data` |
+| C | `Alumne` |
+| D | `Grup` |
+| E | `Punts` |
+| F | `Comentari` |
+| G | `Mesura` |
+
+Code should validate headers by name, not only by column position.
+
+## Field Definitions
+
+### `Id`
+
+Student identifier.
+
+Rules:
+
+- Same student key as `llistat_anual`.`Id`.
+- Treat as the stable student identifier for joining with incident rows.
+- Preserve as text when possible, even if it looks numeric.
+- A meeting record must not be created without `Id`.
+
+### `Data`
+
+Meeting/record date.
+
+Expected display format:
+
+```text
+dd/mm/yyyy
+```
+
+Rules:
+
+- Parse as day/month/year.
+- Apps Script may read this as a `Date` object or text.
+- Use `Europe/Madrid` calendar semantics.
+- This is the date of the meeting record, not necessarily the date of an incident.
+
+### `Alumne`
+
+Student full name.
+
+Format:
+
+```text
+surnames, name
+```
+
+Rules:
+
+- Same display format as `llistat_anual`.`Alumne`.
+- Use for human-readable display.
+- Do not use as the primary key when `Id` is available.
+
+### `Grup`
+
+Student group.
+
+Rules:
+
+- Same group-resolution criteria as `llistat_anual`.
+- Resolve from `llistat_anual`.`Grups` by matching one tag against `config`.`Grups`.
+- Store the resolved configured group text.
+- If group cannot be resolved, the record creation flow should surface that clearly before writing.
+
+### `Punts`
+
+Student point total for the period being reviewed.
+
+Rules:
+
+- Calculate with the same scoring logic used by the endpoint.
+- Sum `llistat_anual`.`Puntuació` for the relevant student between the chosen start date and end date, inclusive.
+- The start/end dates are feature-specific; when connected to a term view, use the current term start date and the selected/reference date.
+- Parse and store as a signed number.
+- Do not silently store blank or invalid point totals.
+
+### `Comentari`
+
+Free text field.
+
+Rules:
+
+- Internal/staff-facing text.
+- Preserve line breaks and punctuation.
+- May be blank unless a future workflow marks it as required.
+
+### `Mesura`
+
+Restorative measure value.
+
+Rules:
+
+- Must be one value from `Incidències` -> `config` -> `Mesures_restauratives`.
+- Compare against configured values after trimming whitespace.
+- Preserve the configured text for display and storage.
+- Do not write arbitrary values that are not configured.
+
+## Relationship With Other Sheets
+
+| Sheet | Relationship |
+| --- | --- |
+| `llistat_anual` | Source for `Id`, `Alumne`, group resolution, and point calculation. |
+| `config` | Source for valid `Grups` and valid `Mesures_restauratives`. |
+
+## Main Endpoint Save Mapping
+
+When the user edits the main points table and presses Save, create one `meeting_records` row per edited student row.
+
+A main table row is considered edited when:
+
+- `Comentari` contains non-empty text, or
+- `Mesura` contains a non-empty selected value.
+
+Write mapping:
+
+| `meeting_records` column | Main endpoint source |
+| --- | --- |
+| `Id` | Student `Id` from the rendered points row |
+| `Data` | Date selected in the main page date picker |
+| `Alumne` | Rendered `Alumne` |
+| `Grup` | Rendered `Grup` |
+| `Punts` | Rendered `Punts` total |
+| `Comentari` | User-written comment |
+| `Mesura` | User-selected restorative measure |
+
+Rules:
+
+- `Data` must be stored as the selected date in `dd/mm/yyyy` format or as a sheet date formatted that way.
+- `Punts` must be the same point total shown in the main table at save time.
+- `Grup` must be saved from the rendered/resolved group column.
+- Normal Save appends new rows only.
+- Normal Save must not edit or delete previous meeting records.
+- The explicit main-page clear action is allowed to delete the matching saved row used to prefill the current student/date.
+- Saving must not modify `llistat_anual`.
+- A row with both blank `Comentari` and blank `Mesura` must not be saved.
+- A non-empty `Mesura` must exist in `config`.`Mesures_restauratives`.
+
+## Main Endpoint Prefill Mapping
+
+When `Inici` loads for a selected date, it should use this sheet to avoid repeating work already saved for that same date.
+
+Lookup key:
+
+| Field | Meaning |
+| --- | --- |
+| `Data` | Must match the selected main-page date. |
+| `Id` | Must match the rendered student row `Id`. |
+
+Rules:
+
+- If a matching record exists, prefill the main row's `Comentari` and `Mesura`.
+- Show the saved/check status icon for prefilled rows.
+- Do not mark prefilled rows as unsaved/orange.
+- If multiple records match the same `Data` and `Id`, use the latest matching row, defined as the last matching row by sheet order.
+- Prefill should not overwrite the main page's calculated `Punts`; points on `Inici` still come from the current incident calculation.
+- `Històric REC` should show all matching records, not only the last one.
+
+## Main Endpoint Clear Mapping
+
+When a prefilled or saved row shows the saved/check icon, the user can clear that saved work from `Inici`.
+
+Rules:
+
+- On hover, the saved/check icon becomes a ban/clear icon.
+- Clicking the ban/clear icon deletes the `meeting_records` row used to prefill the current student/date.
+- If multiple records match the same `Data` and `Id`, delete the latest matching row, defined as the last matching row by sheet order.
+- After deletion, the main-page row clears `Comentari`, clears `Mesura`, removes saved styling/icons, and keeps the calculated `Punts`.
+- This delete behavior belongs only to the explicit clear action, not to normal Save.
+- Use the global busy indicator while deleting.
+
+## Minimal Write Flow
+
+1. Open `Incidències` -> `meeting_records`.
+2. Validate required headers.
+3. Open `Incidències` -> `config`.
+4. Load valid groups from `config`.`Grups`.
+5. Load valid restorative measures from `config`.`Mesures_restauratives`.
+6. Open `Incidències` -> `llistat_anual`.
+7. Find the student by `Id`.
+8. Resolve `Alumne` and `Grup` from incident data.
+9. Calculate `Punts` using the selected/relevant date range.
+10. Validate `Mesura` against configured restorative measures.
+11. Append one row to `meeting_records`.
+
+## Validation Rules
+
+- Missing `Id` blocks record creation.
+- Missing or invalid `Data` blocks record creation.
+- Missing `Alumne` should be surfaced before writing.
+- Unresolved or ambiguous `Grup` should be surfaced before writing.
+- Invalid `Punts` blocks record creation.
+- Invalid `Mesura` blocks record creation.
+- `Comentari` can be blank unless a future workflow says otherwise.
+
+## Privacy
+
+`meeting_records` is an internal/staff-facing table.
+
+Do not expose `Comentari` or `Mesura` in family-facing views unless a future spec explicitly allows it.

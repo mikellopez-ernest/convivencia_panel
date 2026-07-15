@@ -1,0 +1,247 @@
+<style>
+      body {
+        background: #f6f7f9;
+      }
+
+      .app-layout {
+        display: flex;
+        gap: 1.25rem;
+        min-height: 100vh;
+      }
+
+      .app-nav {
+        background: #ffffff;
+        border-right: 1px solid #d9dde3;
+        flex: 0 0 240px;
+        padding: 1rem;
+      }
+
+      .app-nav-inner {
+        position: sticky;
+        top: 1rem;
+      }
+
+      .app-nav-title {
+        color: #4b5563;
+        font-size: 0.85rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        text-transform: uppercase;
+      }
+
+      .app-nav .nav-link {
+        color: #334155;
+        font-weight: 500;
+        text-align: left;
+        width: 100%;
+      }
+
+      .app-nav .nav-link.active {
+        background: #0d6efd;
+        color: #ffffff;
+      }
+
+      .app-shell {
+        flex: 1 1 auto;
+        max-width: 1120px;
+        min-width: 0;
+      }
+
+      .student-button {
+        appearance: none;
+        background: none;
+        border: 0;
+        color: var(--bs-link-color);
+        padding: 0;
+        text-align: left;
+      }
+
+      .student-button:hover,
+      .student-button:focus {
+        text-decoration: underline;
+      }
+
+      .points-cell {
+        font-variant-numeric: tabular-nums;
+      }
+
+      .status-cell {
+        text-align: center;
+        width: 2.75rem;
+      }
+
+      .editable-row {
+        --bs-table-bg: #fff3cd;
+        --bs-table-striped-bg: #ffe8a1;
+        --bs-table-hover-bg: #ffdf7e;
+      }
+
+      .saved-check {
+        color: #198754;
+        font-size: 1.1rem;
+      }
+
+      .saved-clear-button {
+        background: transparent;
+        border: 0;
+        color: #198754;
+        padding: 0.15rem;
+      }
+
+      .saved-clear-button .clear-icon {
+        display: none;
+      }
+
+      .saved-clear-button:hover,
+      .saved-clear-button:focus {
+        color: #dc3545;
+      }
+
+      .saved-clear-button:hover .check-icon,
+      .saved-clear-button:focus .check-icon {
+        display: none;
+      }
+
+      .saved-clear-button:hover .clear-icon,
+      .saved-clear-button:focus .clear-icon {
+        display: inline-block;
+      }
+
+      .comment-input {
+        min-width: 220px;
+      }
+
+      .measure-select {
+        min-width: 190px;
+      }
+
+      .action-fab {
+        bottom: 1rem;
+        height: 3rem;
+        position: fixed;
+        width: 3rem;
+        z-index: 1040;
+      }
+
+      .admin-fab {
+        right: 1rem;
+      }
+
+      .save-fab {
+        right: 4.5rem;
+      }
+
+      .admin-menu {
+        bottom: 4.5rem;
+        min-width: 220px;
+        position: fixed;
+        right: 1rem;
+        z-index: 1040;
+      }
+
+      .diagnostic-block {
+        max-height: 260px;
+        overflow: auto;
+        white-space: pre-wrap;
+      }
+
+      .student-detail-table {
+        min-width: 980px;
+      }
+
+      .student-detail-note {
+        min-width: 220px;
+        white-space: pre-wrap;
+      }
+
+      .page-section.d-none {
+        display: none !important;
+      }
+
+      .selected-cell {
+        background: #fff3cd !important;
+      }
+
+      .third-cell {
+        min-width: 160px;
+        vertical-align: top;
+      }
+
+      .third-cell .form-check-input {
+        border-radius: 50%;
+      }
+
+      .teacher-list {
+        white-space: pre-wrap;
+      }
+
+      .busy-overlay {
+        align-items: center;
+        background: rgba(246, 247, 249, 0.72);
+        display: none;
+        inset: 0;
+        justify-content: center;
+        position: fixed;
+        z-index: 2000;
+      }
+
+      .busy-overlay.active {
+        display: flex;
+      }
+
+      .calendar-cell {
+        min-width: 150px;
+        vertical-align: top;
+      }
+
+      .calendar-cell-muted {
+        background: #f1f3f5;
+        color: #6c757d;
+      }
+
+      .calendar-assignment {
+        border-top: 1px solid #e5e7eb;
+        margin-top: 0.5rem;
+        padding-top: 0.5rem;
+      }
+
+      @media (max-width: 767.98px) {
+        .app-layout {
+          display: block;
+        }
+
+        .app-nav {
+          border-bottom: 1px solid #d9dde3;
+          border-right: 0;
+          padding: 0.75rem;
+        }
+
+        .app-nav-inner {
+          position: static;
+        }
+
+        .app-nav-title {
+          margin-bottom: 0.5rem;
+        }
+
+        .app-nav .nav {
+          flex-direction: row !important;
+          flex-wrap: nowrap;
+          gap: 0.35rem;
+          overflow-x: auto;
+          padding-bottom: 0.1rem;
+        }
+
+        .app-nav .nav-link {
+          white-space: nowrap;
+        }
+
+        .comment-input {
+          min-width: 180px;
+        }
+
+        .measure-select {
+          min-width: 170px;
+        }
+      }
+</style>

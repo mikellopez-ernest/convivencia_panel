@@ -1,0 +1,57 @@
+# Local OS files
+.DS_Store
+Thumbs.db
+
+# Google Apps Script / clasp local metadata
+.clasp.json
+.clasprc.json
+.clasprc
+*.local.clasp.json
+
+# Local deployment commands and assistant working notes
+docs/.commands.md
+codex-pending.txt
+
+# Secrets and local environment files
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.credentials.json
+credentials.json
+client_secret*.json
+service-account*.json
+
+# Dependency and build artifacts
+node_modules/
+dist/
+build/
+.cache/
+.tmp/
+tmp/
+temp/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python/editor cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local editor/project metadata
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local data exports and sensitive spreadsheet/report files
+*.xlsx
+*.xls
+*.csv
+tracking-report*

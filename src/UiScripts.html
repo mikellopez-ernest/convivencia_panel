@@ -1,0 +1,1636 @@
+<script>
+      const state = {
+        picker: null,
+        historicPicker: null,
+        tuesdayPicker: null,
+        importModal: null,
+        studentDetailModal: null,
+        studyGroupModal: null,
+        thirdProjectModal: null,
+        expulsionModal: null,
+        studentDetailIncidents: [],
+        restorativeMeasures: [],
+        editedRows: {},
+        rowControls: {},
+        savedRows: {},
+        historicRecords: [],
+        tuesdayComments: {},
+        thirdProjectOutcomes: {},
+        expulsionRecords: [],
+        expulsionSearchTimer: null,
+        pageLoaded: {},
+        activeSpecialRow: null,
+        thirdProjectSelectedDates: [],
+        saveQueue: [],
+        isSaving: false,
+        specialFlowPending: false,
+        pendingImport: null,
+        lastPayloadStatus: '',
+        currentDate: '',
+        currentPage: 'home'
+      };
+
+      const Api = {
+        call(name, args = [], options = {}) {
+          const busy = options.busy !== false;
+          const button = options.button || null;
+
+          if (busy) {
+            setLoading(true);
+          }
+
+          if (button) {
+            button.disabled = true;
+          }
+
+          return new Promise((resolve, reject) => {
+            google.script.run
+              .withSuccessHandler((payload) => {
+                if (busy) {
+                  setLoading(false);
+                }
+
+                if (button) {
+                  button.disabled = false;
+                }
+
+                resolve(payload);
+              })
+              .withFailureHandler((error) => {
+                if (busy) {
+                  setLoading(false);
+                }
+
+                if (button) {
+                  button.disabled = false;
+                }
+
+                reject(error);
+              })[name](...args);
+          });
+        }
+      };
+
+      document.addEventListener('DOMContentLoaded', () => {
+        state.importModal = new bootstrap.Modal(document.getElementById('importModal'));
+        state.studentDetailModal = new bootstrap.Modal(document.getElementById('studentDetailModal'));
+        state.studyGroupModal = new bootstrap.Modal(document.getElementById('studyGroupModal'));
+        state.thirdProjectModal = new bootstrap.Modal(document.getElementById('thirdProjectModal'));
+        state.expulsionModal = new bootstrap.Modal(document.getElementById('expulsionModal'));
+        state.picker = flatpickr('#selectedDate', {
+          dateFormat: 'd/m/Y',
+          locale: flatpickr.l10ns.es,
+          defaultDate: new Date(),
+          disableMobile: false,
+          onChange: (_selectedDates, dateStr) => handleDateChange(dateStr)
+        });
+        state.historicPicker = flatpickr('#historicDate', {
+          dateFormat: 'd/m/Y',
+          locale: flatpickr.l10ns.es,
+          allowInput: true,
+          onChange: renderHistoricRows
+        });
+        state.tuesdayPicker = flatpickr('#tuesdayDate', {
+          dateFormat: 'd/m/Y',
+          locale: flatpickr.l10ns.es,
+          disableMobile: false,
+          onChange: (_selectedDates, dateStr) => loadTuesdaySessions(dateStr)
+        });
+        flatpickr('.expulsion-date', {
+          dateFormat: 'd/m/Y',
+          locale: flatpickr.l10ns.es,
+          disableMobile: false
+        });
+
+        document.getElementById('adminFab').addEventListener('click', toggleAdminMenu);
+        document.getElementById('saveFab').addEventListener('click', handleSaveButton);
+        document.getElementById('uploadImportButton').addEventListener('click', chooseXlsxFile);
+        document.getElementById('apiImportButton').addEventListener('click', previewApiImport);
+        document.getElementById('xlsxInput').addEventListener('change', previewUploadedImport);
+        document.getElementById('confirmImportButton').addEventListener('click', confirmImport);
+        document.getElementById('activityFilter').addEventListener('change', renderFilteredStudentDetailRows);
+        document.getElementById('teacherFilter').addEventListener('change', renderFilteredStudentDetailRows);
+        document.getElementById('historicGroup').addEventListener('change', renderHistoricRows);
+        document.getElementById('historicStudent').addEventListener('input', renderHistoricRows);
+        document.getElementById('expulsionSearch').addEventListener('input', handleExpulsionSearchInput);
+        document.getElementById('studyGroupCount').addEventListener('input', renderStudyGroupDateInputs);
+        document.getElementById('saveStudyGroupButton').addEventListener('click', saveStudyGroupFromModal);
+        document.getElementById('saveThirdProjectButton').addEventListener('click', saveThirdProjectFromModal);
+        document.getElementById('saveExpulsionButton').addEventListener('click', saveExpulsionFromModal);
+        ['studyGroupModal', 'thirdProjectModal', 'expulsionModal'].forEach((id) => {
+          document.getElementById(id).addEventListener('hidden.bs.modal', handleSpecialModalHidden);
+        });
+        document.querySelectorAll('.placeholder-link').forEach((link) => {
+          link.addEventListener('click', (event) => event.preventDefault());
+        });
+        document.querySelectorAll('.page-link').forEach((link) => {
+          link.addEventListener('click', (event) => {
+            event.preventDefault();
+            showPage(link.dataset.page);
+          });
+        });
+
+        loadPayload();
+      });
+
+      function loadPayload(dateText) {
+        Api.call('getIncidentPointsPayload', [dateText || ''])
+          .then(renderPayload)
+          .catch(renderError);
+      }
+
+      function showPage(page) {
+        state.currentPage = page || 'home';
+        document.querySelectorAll('.page-section').forEach((section) => section.classList.add('d-none'));
+        document.querySelectorAll('.page-link').forEach((link) => {
+          const active = link.dataset.page === state.currentPage;
+          link.classList.toggle('active', active);
+          link.toggleAttribute('aria-current', active);
+        });
+
+        if (state.currentPage === 'historic') {
+          document.getElementById('historicPage').classList.remove('d-none');
+          if (!state.pageLoaded.historic) {
+            loadHistoricRec();
+          }
+          showAdminTools(false);
+          return;
+        }
+
+        if (state.currentPage === 'tuesday') {
+          document.getElementById('tuesdayPage').classList.remove('d-none');
+          loadTuesdaySessions();
+          showAdminTools(true);
+          return;
+        }
+
+        if (state.currentPage === 'third') {
+          document.getElementById('thirdPage').classList.remove('d-none');
+          if (!state.pageLoaded.third) {
+            loadThirdProjectMonth();
+          }
+          showAdminTools(true);
+          return;
+        }
+
+        if (state.currentPage === 'expulsions') {
+          document.getElementById('expulsionsPage').classList.remove('d-none');
+          if (!state.pageLoaded.expulsions) {
+            loadExpulsions();
+          }
+          showAdminTools(false);
+          return;
+        }
+
+        document.getElementById('homePage').classList.remove('d-none');
+        showAdminTools(state.lastPayloadStatus !== 'unauthorized');
+      }
+
+      function loadHistoricRec() {
+        Api.call('getHistoricRecPayload')
+          .then(renderHistoricPayload)
+          .catch((error) => showAlert(error.message || String(error), 'danger'));
+      }
+
+      function renderHistoricPayload(payload) {
+        if (!payload || !payload.ok) {
+          showAlert(payload && payload.message ? payload.message : 'Error desconegut.', 'danger');
+          return;
+        }
+
+        state.historicRecords = payload.records || [];
+        state.pageLoaded.historic = true;
+        populateSelect(document.getElementById('historicGroup'), payload.groups || [], 'Tots');
+        renderHistoricRows();
+      }
+
+      function renderHistoricRows() {
+        const tbody = document.getElementById('historicRows');
+        const empty = document.getElementById('historicEmpty');
+        const date = document.getElementById('historicDate').value;
+        const group = document.getElementById('historicGroup').value;
+        const student = normalizeText(document.getElementById('historicStudent').value);
+        const rows = state.historicRecords.filter((record) => {
+          return (!date || record.data === date)
+            && (!group || record.grup === group)
+            && (!student || normalizeText(record.alumne).includes(student));
+        });
+
+        tbody.innerHTML = '';
+        empty.classList.toggle('d-none', rows.length > 0);
+        empty.textContent = state.historicRecords.length ? 'No hi ha registres amb aquests filtres.' : 'No hi ha registres REC.';
+
+        rows.forEach((record) => {
+          const tr = document.createElement('tr');
+          appendTextCell(tr, record.data);
+          appendTextCell(tr, record.alumne);
+          appendTextCell(tr, record.grup);
+          appendTextCell(tr, formatPoints(record.punts), 'text-end points-cell');
+          appendTextCell(tr, record.comentari, 'student-detail-note');
+          appendTextCell(tr, record.mesura);
+          tbody.appendChild(tr);
+        });
+      }
+
+      function loadTuesdaySessions(dateText) {
+        Api.call('getTuesdaySessionsPayload', [dateText || ''])
+          .then(renderTuesdayPayload)
+          .catch((error) => showAlert(error.message || String(error), 'danger'));
+      }
+
+      function renderTuesdayPayload(payload) {
+        if (!payload || !payload.ok) {
+          showAlert(payload && payload.message ? payload.message : 'Error desconegut.', 'danger');
+          return;
+        }
+
+        if (payload.selectedDate && state.tuesdayPicker) {
+          state.tuesdayPicker.setDate(payload.selectedDate, false, 'd/m/Y');
+        }
+
+        state.tuesdayComments = {};
+        document.getElementById('tuesdayTeachers').textContent = (payload.teachers || []).join('\n') || 'No hi ha professorat assignat.';
+        renderTuesdayRows(payload.students || []);
+      }
+
+      function renderTuesdayRows(rows) {
+        const tbody = document.getElementById('tuesdayRows');
+        const empty = document.getElementById('tuesdayEmpty');
+        tbody.innerHTML = '';
+        empty.classList.toggle('d-none', rows.length > 0);
+        empty.textContent = 'No hi ha alumnat assignat a aquesta sessió.';
+
+        rows.forEach((row) => {
+          const tr = document.createElement('tr');
+          const input = document.createElement('input');
+
+          input.className = 'form-control form-control-sm comment-input';
+          input.value = row.comment || '';
+          input.addEventListener('input', () => {
+            state.tuesdayComments[row.id] = input.value;
+            tr.classList.add('editable-row');
+            syncSaveButtonState();
+          });
+
+          appendTextCell(tr, row.id);
+          appendTextCell(tr, row.date);
+          appendTextCell(tr, row.student);
+          const cell = document.createElement('td');
+          cell.appendChild(input);
+          tr.appendChild(cell);
+          tbody.appendChild(tr);
+        });
+
+        syncSaveButtonState();
+      }
+
+      function loadThirdProjectMonth() {
+        Api.call('getThirdProjectMonthPayload', [''])
+          .then(renderThirdProjectMonth)
+          .catch((error) => showAlert(error.message || String(error), 'danger'));
+      }
+
+      function renderThirdProjectMonth(payload) {
+        if (!payload || !payload.ok) {
+          showAlert(payload && payload.message ? payload.message : 'Error desconegut.', 'danger');
+          return;
+        }
+
+        state.thirdProjectOutcomes = {};
+        state.pageLoaded.third = true;
+        document.getElementById('thirdMonthLabel').textContent = payload.monthLabel ? `Calendari ${payload.monthLabel}` : 'Calendari mensual.';
+
+        const tbody = document.getElementById('thirdMonthRows');
+        const empty = document.getElementById('thirdEmpty');
+        const options = payload.outcomeOptions || [];
+        let assignmentCount = 0;
+        tbody.innerHTML = '';
+
+        (payload.weeks || []).forEach((week) => {
+          const tr = document.createElement('tr');
+
+          week.forEach((cell) => {
+            const td = document.createElement('td');
+            td.className = 'calendar-cell';
+            td.classList.toggle('calendar-cell-muted', !cell.inMonth || cell.weekend);
+
+            const date = document.createElement('div');
+            date.className = 'fw-semibold';
+            date.textContent = cell.inMonth ? cell.date : '';
+            td.appendChild(date);
+
+            if (cell.inMonth && !cell.weekend) {
+              const teacher = document.createElement('div');
+              teacher.className = 'small text-secondary';
+              teacher.textContent = cell.teacher || 'Sense professor';
+              td.appendChild(teacher);
+
+              (cell.assignments || []).forEach((assignment) => {
+                assignmentCount += 1;
+                const block = document.createElement('div');
+                const name = document.createElement('div');
+                const select = document.createElement('select');
+
+                block.className = 'calendar-assignment';
+                name.className = 'small mb-1';
+                name.textContent = assignment.student || '(sense alumne)';
+                select.className = 'form-select form-select-sm';
+                populateSelect(select, options, '');
+                select.value = assignment.aprofitament || '';
+                select.addEventListener('change', () => {
+                  state.thirdProjectOutcomes[assignment.id] = {
+                    id: assignment.id,
+                    aprofitament: select.value
+                  };
+                  block.classList.add('selected-cell');
+                  syncSaveButtonState();
+                });
+
+                block.appendChild(name);
+                block.appendChild(select);
+                td.appendChild(block);
+              });
+            }
+
+            tr.appendChild(td);
+          });
+
+          tbody.appendChild(tr);
+        });
+
+        empty.classList.toggle('d-none', assignmentCount > 0);
+        empty.textContent = 'No hi ha assignacions 3R en aquest mes.';
+        syncSaveButtonState();
+      }
+
+      function loadExpulsions(query) {
+        Api.call('getExpulsionsPayload', [query || ''])
+          .then(renderExpulsionsPayload)
+          .catch((error) => showAlert(error.message || String(error), 'danger'));
+      }
+
+      function handleExpulsionSearchInput() {
+        window.clearTimeout(state.expulsionSearchTimer);
+        state.expulsionSearchTimer = window.setTimeout(() => {
+          loadExpulsions(document.getElementById('expulsionSearch').value);
+        }, 250);
+      }
+
+      function renderExpulsionsPayload(payload) {
+        if (!payload || !payload.ok) {
+          showAlert(payload && payload.message ? payload.message : 'Error desconegut.', 'danger');
+          return;
+        }
+
+        const datalist = document.getElementById('expulsionSuggestions');
+        datalist.innerHTML = '';
+        (payload.suggestions || []).forEach((student) => {
+          const option = document.createElement('option');
+          option.value = student;
+          datalist.appendChild(option);
+        });
+
+        state.expulsionRecords = payload.records || [];
+        state.pageLoaded.expulsions = true;
+        renderExpulsionsRows(state.expulsionRecords);
+      }
+
+      function renderExpulsionsRows(rows) {
+        const tbody = document.getElementById('expulsionsRows');
+        const empty = document.getElementById('expulsionsEmpty');
+        tbody.innerHTML = '';
+        empty.classList.toggle('d-none', rows.length > 0);
+        empty.textContent = document.getElementById('expulsionSearch').value
+          ? 'No hi ha expulsions per a aquest filtre.'
+          : 'No hi ha expulsions registrades.';
+
+        rows.forEach((record) => {
+          const tr = document.createElement('tr');
+          appendTextCell(tr, record.id);
+          appendTextCell(tr, record.date);
+          appendTextCell(tr, record.student);
+          appendTextCell(tr, record.className);
+          appendTextCell(tr, record.startDate);
+          appendTextCell(tr, record.returnDate);
+          appendTextCell(tr, record.incident, 'student-detail-note');
+
+          const documentCell = document.createElement('td');
+          if (record.document) {
+            const link = document.createElement('a');
+            link.href = record.document;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.textContent = 'Document';
+            documentCell.appendChild(link);
+          } else {
+            documentCell.textContent = '-';
+          }
+          tr.appendChild(documentCell);
+          tbody.appendChild(tr);
+        });
+      }
+
+      function handleDateChange(dateText) {
+        if (hasUnsavedRows()) {
+          const proceed = window.confirm('Hi ha registres pendents de desar. Vols descartar aquests canvis?');
+
+          if (!proceed) {
+            if (state.currentDate && state.picker) {
+              state.picker.setDate(state.currentDate, false, 'd/m/Y');
+            }
+
+            return;
+          }
+        }
+
+        clearMeetingEditState();
+        loadPayload(dateText);
+      }
+
+      function renderPayload(payload) {
+        setLoading(false);
+
+        if (!payload || !payload.ok) {
+          renderError(payload && payload.message ? payload.message : 'Error desconegut.');
+          return;
+        }
+
+        if (payload.selectedDate && state.picker) {
+          state.picker.setDate(payload.selectedDate, false, 'd/m/Y');
+          state.currentDate = payload.selectedDate;
+        }
+
+        if (payload.status === 'unauthorized') {
+          state.lastPayloadStatus = payload.status;
+          showAlert(payload.message, 'warning');
+          showControls(false);
+          showAdminTools(false);
+          renderRows([]);
+          renderIssues([]);
+          return;
+        }
+
+        state.lastPayloadStatus = payload.status;
+        state.restorativeMeasures = payload.restorativeMeasures || [];
+        clearMeetingEditState();
+        showControls(true);
+        showAdminTools(true);
+
+        if (payload.status === 'out_of_period' || payload.status === 'empty') {
+          showAlert(payload.message, payload.status === 'empty' ? 'info' : 'warning');
+          renderRows([]);
+        } else {
+          hideAlert();
+          renderRows(payload.rows || []);
+        }
+
+        renderTerm(payload.term);
+        renderIssues(payload.issues || []);
+      }
+
+      function renderRows(rows) {
+        const tbody = document.getElementById('rows');
+        const tableSection = document.getElementById('tableSection');
+        tbody.innerHTML = '';
+
+        if (!rows.length) {
+          tableSection.classList.add('d-none');
+          return;
+        }
+
+        tableSection.classList.remove('d-none');
+
+        rows.forEach((row) => {
+          const tr = document.createElement('tr');
+          const statusCell = document.createElement('td');
+          const studentCell = document.createElement('td');
+          const groupCell = document.createElement('td');
+          const pointsCell = document.createElement('td');
+          const commentCell = document.createElement('td');
+          const measureCell = document.createElement('td');
+          const studentButton = document.createElement('button');
+          const commentInput = document.createElement('input');
+          const measureSelect = document.createElement('select');
+          const savedRecord = row.savedRecord || null;
+
+          statusCell.className = 'status-cell';
+          studentButton.type = 'button';
+          studentButton.className = 'student-button';
+          studentButton.textContent = row.alumne || '(sense nom)';
+          studentButton.title = 'Veure incidències';
+          studentButton.addEventListener('click', () => openStudentDetail(row));
+
+          commentInput.type = 'text';
+          commentInput.className = 'form-control form-control-sm comment-input';
+          commentInput.dataset.field = 'comentari';
+          commentInput.setAttribute('aria-label', `Comentari de ${row.alumne || 'alumne'}`);
+          commentInput.addEventListener('input', () => updateMeetingEditState(row, tr, statusCell, commentInput, measureSelect));
+
+          measureSelect.className = 'form-select form-select-sm measure-select';
+          measureSelect.dataset.field = 'mesura';
+          measureSelect.setAttribute('aria-label', `Mesura de ${row.alumne || 'alumne'}`);
+          populateSelect(measureSelect, state.restorativeMeasures, '');
+          measureSelect.addEventListener('change', () => updateMeetingEditState(row, tr, statusCell, commentInput, measureSelect));
+
+          if (savedRecord) {
+            commentInput.value = savedRecord.comentari || '';
+            measureSelect.value = savedRecord.mesura || '';
+            renderSavedStatus(row, statusCell);
+          }
+
+          studentCell.appendChild(studentButton);
+          groupCell.textContent = row.grup || 'Sense grup';
+          pointsCell.className = 'text-end points-cell';
+          pointsCell.textContent = formatPoints(row.punts);
+          commentCell.appendChild(commentInput);
+          measureCell.appendChild(measureSelect);
+
+          tr.appendChild(statusCell);
+          tr.appendChild(studentCell);
+          tr.appendChild(groupCell);
+          tr.appendChild(pointsCell);
+          tr.appendChild(commentCell);
+          tr.appendChild(measureCell);
+          tbody.appendChild(tr);
+          state.rowControls[row.id] = { tr, statusCell, commentInput, measureSelect, row };
+        });
+
+        syncSaveButtonState();
+      }
+
+      function updateMeetingEditState(row, tr, statusCell, commentInput, measureSelect) {
+        const comment = commentInput.value.trim();
+        const measure = measureSelect.value.trim();
+        const isEdited = Boolean(comment || measure);
+
+        tr.classList.toggle('editable-row', isEdited);
+        statusCell.innerHTML = '';
+
+        if (isEdited) {
+          state.editedRows[row.id] = {
+            id: row.id,
+            alumne: row.alumne || '',
+            grup: row.grup || '',
+            punts: row.punts,
+            comentari: comment,
+            mesura: measure
+          };
+          delete state.savedRows[row.id];
+        } else {
+          delete state.editedRows[row.id];
+          delete state.savedRows[row.id];
+        }
+
+        syncSaveButtonState();
+      }
+
+      function renderSavedStatus(row, statusCell) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'saved-clear-button';
+        button.title = 'Esborrar registre desat';
+        button.setAttribute('aria-label', 'Esborrar registre desat');
+        button.innerHTML = [
+          '<i class="bi bi-check-circle-fill saved-check check-icon" aria-hidden="true"></i>',
+          '<i class="bi bi-ban clear-icon" aria-hidden="true"></i>'
+        ].join('');
+        button.addEventListener('click', () => clearSavedMeetingRecord(row));
+        statusCell.innerHTML = '';
+        statusCell.appendChild(button);
+      }
+
+      function clearSavedMeetingRecord(row) {
+        const controls = state.rowControls[row.id];
+
+        if (!controls) {
+          return;
+        }
+
+        setLoading(true);
+        google.script.run
+          .withSuccessHandler((payload) => {
+            setLoading(false);
+
+            if (!payload || !payload.ok) {
+              showAlert(payload && payload.message ? payload.message : 'No s’ha pogut esborrar el registre.', 'danger');
+              return;
+            }
+
+            controls.commentInput.value = '';
+            controls.measureSelect.value = '';
+            controls.tr.classList.remove('editable-row');
+            controls.statusCell.innerHTML = '';
+            delete state.editedRows[row.id];
+            delete state.savedRows[row.id];
+            showAlert(payload.message || 'Registre esborrat correctament.', 'success');
+            syncSaveButtonState();
+          })
+          .withFailureHandler((error) => {
+            setLoading(false);
+            showAlert(error.message || String(error), 'danger');
+          })
+          .deleteLatestMeetingRecord(row.id, document.getElementById('selectedDate').value);
+      }
+
+      function handleSaveButton() {
+        if (state.currentPage === 'tuesday') {
+          saveTuesdayComments();
+          return;
+        }
+
+        if (state.currentPage === 'third') {
+          saveThirdProjectOutcomes();
+          return;
+        }
+
+        saveEditedMeetingRecords();
+      }
+
+      function saveEditedMeetingRecords() {
+        const records = Object.keys(state.editedRows).map((id) => state.editedRows[id]);
+
+        if (!records.length) {
+          showAlert('No hi ha registres pendents de desar.', 'info');
+          return;
+        }
+
+        const simpleRecords = records.filter((record) => !isSpecialMeasure(record.mesura));
+        const specialRecords = records.filter((record) => isSpecialMeasure(record.mesura));
+
+        setSaving(true);
+
+        if (simpleRecords.length) {
+          Api.call('saveMeetingRecords', [simpleRecords, document.getElementById('selectedDate').value], {
+            busy: true
+          })
+            .then((payload) => {
+              if (!payload || !payload.ok) {
+                renderMeetingSaveFailure(payload || 'Error desconegut.');
+                return;
+              }
+
+              simpleRecords.forEach((record) => markSingleRowAsSaved(record.id));
+              state.saveQueue = specialRecords;
+              processNextMeetingRecord();
+            })
+            .catch(renderMeetingSaveFailure);
+          return;
+        }
+
+        state.saveQueue = specialRecords;
+        processNextMeetingRecord();
+      }
+
+      function isSpecialMeasure(measure) {
+        return ['Dimarts tarda', 'Equip 3R', 'Expulsió'].includes(String(measure || '').trim());
+      }
+
+      function processNextMeetingRecord() {
+        const record = state.saveQueue.shift();
+
+        if (!record) {
+          setSaving(false);
+          setLoading(false);
+          showAlert('Registres desats correctament.', 'success');
+          syncSaveButtonState();
+          return;
+        }
+
+        setLoading(true);
+        google.script.run
+          .withSuccessHandler((payload) => {
+            setLoading(false);
+            if (!payload || !payload.ok) {
+              renderMeetingSaveFailure(payload || 'Error desconegut.');
+              return;
+            }
+
+            markSingleRowAsSaved(record.id);
+            handleSpecialMeasure(record);
+          })
+          .withFailureHandler(renderMeetingSaveFailure)
+          .saveSingleMeetingRecord(record, document.getElementById('selectedDate').value);
+      }
+
+      function handleSpecialMeasure(record) {
+        if (record.mesura === 'Dimarts tarda') {
+          openStudyGroupModal(record);
+          return;
+        }
+
+        if (record.mesura === 'Equip 3R') {
+          openThirdProjectModal(record);
+          return;
+        }
+
+        if (record.mesura === 'Expulsió') {
+          openExpulsionModal(record);
+          return;
+        }
+
+        processNextMeetingRecord();
+      }
+
+      function renderMeetingSaveResult(payload) {
+        setSaving(false);
+
+        if (!payload || !payload.ok) {
+          renderMeetingSaveFailure(payload || 'Error desconegut.');
+          return;
+        }
+
+        if (payload.status === 'empty') {
+          showAlert(payload.message, 'info');
+          return;
+        }
+
+        if (payload.status === 'unauthorized') {
+          showAlert(payload.message, 'warning');
+          return;
+        }
+
+        markEditedRowsAsSaved();
+        showAlert(`${payload.message} (${payload.savedCount || 0})`, 'success');
+      }
+
+      function renderMeetingSaveFailure(error) {
+        setLoading(false);
+        setSaving(false);
+        const payload = typeof error === 'object' && error !== null ? error : { message: String(error || 'Error desconegut.') };
+        const suffix = payload.errors && payload.errors.length ? ` ${payload.errors.slice(0, 3).join(' ')}` : '';
+        showAlert((payload.message || 'No s’han pogut desar els registres.') + suffix, 'danger');
+      }
+
+      function markEditedRowsAsSaved() {
+        Object.keys(state.editedRows).forEach((id) => {
+          state.savedRows[id] = true;
+        });
+
+        state.editedRows = {};
+
+        document.querySelectorAll('#rows tr').forEach((tr) => {
+          tr.classList.remove('editable-row');
+          const statusCell = tr.querySelector('.status-cell');
+          const commentInput = tr.querySelector('.comment-input');
+          const measureSelect = tr.querySelector('.measure-select');
+
+          if (statusCell && commentInput && measureSelect && (commentInput.value.trim() || measureSelect.value.trim())) {
+            const id = Object.keys(state.rowControls).find((rowId) => state.rowControls[rowId].tr === tr);
+            if (id) {
+              renderSavedStatus(state.rowControls[id].row, statusCell);
+            }
+          }
+        });
+
+        syncSaveButtonState();
+      }
+
+      function markSingleRowAsSaved(id) {
+        const controls = state.rowControls[id];
+
+        delete state.editedRows[id];
+
+        if (controls) {
+          controls.tr.classList.remove('editable-row');
+          renderSavedStatus(controls.row, controls.statusCell);
+        }
+
+        syncSaveButtonState();
+      }
+
+      function clearMeetingEditState() {
+        state.editedRows = {};
+        state.rowControls = {};
+        state.savedRows = {};
+        syncSaveButtonState();
+      }
+
+      function hasUnsavedRows() {
+        if (state.currentPage === 'tuesday') {
+          return Object.keys(state.tuesdayComments).length > 0;
+        }
+
+        if (state.currentPage === 'third') {
+          return Object.keys(state.thirdProjectOutcomes).length > 0;
+        }
+
+        return Object.keys(state.editedRows).length > 0;
+      }
+
+      function syncSaveButtonState() {
+        const saveButton = document.getElementById('saveFab');
+
+        if (!saveButton) {
+          return;
+        }
+
+        saveButton.disabled = state.isSaving || !hasUnsavedRows();
+      }
+
+      function setSaving(isSaving) {
+        state.isSaving = Boolean(isSaving);
+        const saveButton = document.getElementById('saveFab');
+
+        if (saveButton) {
+          saveButton.disabled = state.isSaving || !hasUnsavedRows();
+        }
+      }
+
+      function saveTuesdayComments() {
+        const updates = Object.keys(state.tuesdayComments).map((id) => ({
+          id,
+          comment: state.tuesdayComments[id]
+        }));
+
+        if (!updates.length) {
+          showAlert('No hi ha comentaris pendents de desar.', 'info');
+          return;
+        }
+
+        setSaving(true);
+        setLoading(true);
+        google.script.run
+          .withSuccessHandler((payload) => {
+            setLoading(false);
+            setSaving(false);
+
+            if (!payload || !payload.ok) {
+              showAlert(payload && payload.message ? payload.message : 'No s’han pogut desar els comentaris.', 'danger');
+              return;
+            }
+
+            state.tuesdayComments = {};
+            document.querySelectorAll('#tuesdayRows tr').forEach((tr) => tr.classList.remove('editable-row'));
+            showAlert(payload.message, 'success');
+            syncSaveButtonState();
+          })
+          .withFailureHandler((error) => {
+            setLoading(false);
+            setSaving(false);
+            showAlert(error.message || String(error), 'danger');
+          })
+          .saveTuesdaySessionComments(updates);
+      }
+
+      function saveThirdProjectOutcomes() {
+        const updates = Object.keys(state.thirdProjectOutcomes).map((id) => state.thirdProjectOutcomes[id]);
+
+        if (!updates.length) {
+          showAlert('No hi ha canvis pendents de desar.', 'info');
+          return;
+        }
+
+        setSaving(true);
+        setLoading(true);
+        google.script.run
+          .withSuccessHandler((payload) => {
+            setLoading(false);
+            setSaving(false);
+
+            if (!payload || !payload.ok) {
+              showAlert(payload && payload.message ? payload.message : 'No s’ha pogut desar.', 'danger');
+              return;
+            }
+
+            state.thirdProjectOutcomes = {};
+            document.querySelectorAll('#thirdMonthRows .selected-cell').forEach((cell) => cell.classList.remove('selected-cell'));
+            showAlert(payload.message, 'success');
+            syncSaveButtonState();
+          })
+          .withFailureHandler((error) => {
+            setLoading(false);
+            setSaving(false);
+            showAlert(error.message || String(error), 'danger');
+          })
+          .saveThirdProjectOutcomes(updates);
+      }
+
+      function openStudyGroupModal(record) {
+        state.activeSpecialRow = record;
+        state.specialFlowPending = true;
+        document.getElementById('studyGroupAlert').className = 'alert d-none';
+        document.getElementById('studyGroupCount').value = '1';
+        setLoading(true);
+        google.script.run
+          .withSuccessHandler((payload) => {
+            setLoading(false);
+            if (!payload || !payload.ok) {
+              abortSpecialFlow(payload && payload.message ? payload.message : 'Error desconegut.');
+              showModalAlert('studyGroupAlert', payload && payload.message ? payload.message : 'Error desconegut.', 'danger');
+              return;
+            }
+
+            state.studyGroupFirstDate = payload.firstDate;
+            renderStudyGroupDateInputs();
+            state.studyGroupModal.show();
+          })
+          .withFailureHandler((error) => {
+            setLoading(false);
+            abortSpecialFlow(error.message || String(error));
+          })
+          .getStudyGroupDefaultsPayload(document.getElementById('selectedDate').value);
+      }
+
+      function renderStudyGroupDateInputs() {
+        const container = document.getElementById('studyGroupDates');
+        const count = Number(document.getElementById('studyGroupCount').value || 0);
+        container.innerHTML = '';
+
+        if (!Number.isInteger(count) || count < 1) {
+          return;
+        }
+
+        const firstDate = parseClientDate(state.studyGroupFirstDate || document.getElementById('selectedDate').value);
+
+        for (let index = 0; index < count; index += 1) {
+          const input = document.createElement('input');
+          input.className = 'form-control study-date';
+          input.type = 'text';
+          input.value = formatClientDate(addClientDays(firstDate, index * 7));
+          container.appendChild(input);
+          flatpickr(input, { dateFormat: 'd/m/Y', locale: flatpickr.l10ns.es, disableMobile: false });
+        }
+      }
+
+      function saveStudyGroupFromModal() {
+        const dates = Array.from(document.querySelectorAll('.study-date')).map((input) => input.value);
+
+        if (!dates.length) {
+          showModalAlert('studyGroupAlert', 'Cal indicar almenys un dimarts.', 'warning');
+          return;
+        }
+
+        setLoading(true);
+        google.script.run
+          .withSuccessHandler((payload) => {
+            setLoading(false);
+            if (!payload || !payload.ok) {
+              showModalAlert('studyGroupAlert', payload && payload.message ? payload.message : 'No s’ha pogut desar.', 'danger');
+              return;
+            }
+
+            state.specialFlowPending = false;
+            state.studyGroupModal.hide();
+            processNextMeetingRecord();
+          })
+          .withFailureHandler((error) => {
+            setLoading(false);
+            showModalAlert('studyGroupAlert', error.message || String(error), 'danger');
+          })
+          .saveStudyGroupStudents(state.activeSpecialRow.alumne, dates);
+      }
+
+      function openThirdProjectModal(record) {
+        state.activeSpecialRow = record;
+        state.specialFlowPending = true;
+        state.thirdProjectSelectedDates = [];
+        document.getElementById('thirdProjectAlert').className = 'alert d-none';
+        document.getElementById('thirdProjectCount').value = '1';
+        setLoading(true);
+        google.script.run
+          .withSuccessHandler((payload) => {
+            setLoading(false);
+            renderThirdProjectAvailability(payload);
+          })
+          .withFailureHandler((error) => {
+            setLoading(false);
+            abortSpecialFlow(error.message || String(error));
+          })
+          .getThirdProjectAvailabilityPayload();
+      }
+
+      function renderThirdProjectAvailability(payload) {
+        if (!payload || !payload.ok) {
+          abortSpecialFlow(payload && payload.message ? payload.message : 'Error desconegut.');
+          showModalAlert('thirdProjectAlert', payload && payload.message ? payload.message : 'Error desconegut.', 'danger');
+          return;
+        }
+
+        const tbody = document.getElementById('thirdProjectRows');
+        tbody.innerHTML = '';
+
+        (payload.rows || []).forEach((week) => {
+          const tr = document.createElement('tr');
+
+          week.forEach((cell) => {
+            const td = document.createElement('td');
+            td.className = 'third-cell';
+
+            if (cell.date) {
+              const lines = [cell.date, cell.teacher || 'Sense professor'];
+              const studentNames = (cell.students || []).map((student) => student.student || student).filter(Boolean);
+
+              if (studentNames.length) {
+                lines.push(studentNames.join(', '));
+              } else if (cell.selectable) {
+                const wrapper = document.createElement('label');
+                const radio = document.createElement('input');
+                wrapper.className = 'form-check position-absolute top-0 end-0 m-2';
+                radio.type = 'checkbox';
+                radio.className = 'form-check-input';
+                radio.setAttribute('aria-label', `Selecciona ${cell.date}`);
+                radio.addEventListener('change', () => toggleThirdProjectCell(td, cell.date, radio.checked));
+                wrapper.appendChild(radio);
+                td.classList.add('position-relative');
+                td.innerHTML = lines.join('<br>');
+                td.appendChild(wrapper);
+                tr.appendChild(td);
+                return;
+              }
+
+              td.innerHTML = lines.join('<br>');
+            }
+
+            tr.appendChild(td);
+          });
+
+          tbody.appendChild(tr);
+        });
+
+        state.thirdProjectModal.show();
+      }
+
+      function toggleThirdProjectCell(cell, date, forceSelected) {
+        const index = state.thirdProjectSelectedDates.indexOf(date);
+
+        if (forceSelected && index === -1) {
+          state.thirdProjectSelectedDates.push(date);
+          cell.classList.add('selected-cell');
+        } else if (!forceSelected && index !== -1) {
+          state.thirdProjectSelectedDates.splice(index, 1);
+          cell.classList.remove('selected-cell');
+        }
+      }
+
+      function saveThirdProjectFromModal() {
+        const required = Number(document.getElementById('thirdProjectCount').value || 0);
+
+        if (!Number.isInteger(required) || required < 1 || state.thirdProjectSelectedDates.length !== required) {
+          showModalAlert('thirdProjectAlert', 'Has de seleccionar exactament el nombre de caselles indicat.', 'warning');
+          return;
+        }
+
+        setLoading(true);
+        google.script.run
+          .withSuccessHandler((payload) => {
+            setLoading(false);
+            if (!payload || !payload.ok) {
+              showModalAlert('thirdProjectAlert', payload && payload.message ? payload.message : 'No s’ha pogut desar.', 'danger');
+              return;
+            }
+
+            state.specialFlowPending = false;
+            state.thirdProjectModal.hide();
+            processNextMeetingRecord();
+          })
+          .withFailureHandler((error) => {
+            setLoading(false);
+            showModalAlert('thirdProjectAlert', error.message || String(error), 'danger');
+          })
+          .saveThirdProjectAssignments(state.activeSpecialRow.alumne, state.thirdProjectSelectedDates);
+      }
+
+      function openExpulsionModal(record) {
+        state.activeSpecialRow = record;
+        state.specialFlowPending = true;
+        document.getElementById('expulsionAlert').className = 'alert d-none';
+        setLoading(true);
+        google.script.run
+          .withSuccessHandler((payload) => {
+            setLoading(false);
+            if (!payload || !payload.ok) {
+              abortSpecialFlow(payload && payload.message ? payload.message : 'Error desconegut.');
+              showModalAlert('expulsionAlert', payload && payload.message ? payload.message : 'Error desconegut.', 'danger');
+              return;
+            }
+
+            document.getElementById('expulsionData')._flatpickr.setDate(payload.values.data, false, 'd/m/Y');
+            document.getElementById('expulsionStudent').value = payload.values.alumne || '';
+            document.getElementById('expulsionClass').value = payload.values.classe || '';
+            document.getElementById('expulsionStart')._flatpickr.setDate(payload.values.startDate, false, 'd/m/Y');
+            document.getElementById('expulsionReturn')._flatpickr.setDate(payload.values.returnDate, false, 'd/m/Y');
+            document.getElementById('expulsionCreator').value = '';
+            document.getElementById('expulsionIncident').value = '';
+            populateSelect(document.getElementById('expulsionRole'), payload.creators || [], '');
+            state.expulsionModal.show();
+          })
+          .withFailureHandler((error) => {
+            setLoading(false);
+            abortSpecialFlow(error.message || String(error));
+          })
+          .getExpulsionDefaultsPayload(record.alumne, record.grup);
+      }
+
+      function saveExpulsionFromModal() {
+        const payload = {
+          data: document.getElementById('expulsionData').value,
+          creator: document.getElementById('expulsionCreator').value,
+          role: document.getElementById('expulsionRole').value,
+          alumne: document.getElementById('expulsionStudent').value,
+          classe: document.getElementById('expulsionClass').value,
+          startDate: document.getElementById('expulsionStart').value,
+          returnDate: document.getElementById('expulsionReturn').value,
+          incident: document.getElementById('expulsionIncident').value
+        };
+
+        setLoading(true);
+        google.script.run
+          .withSuccessHandler((response) => {
+            setLoading(false);
+            if (!response || !response.ok) {
+              showModalAlert('expulsionAlert', response && response.message ? response.message : 'No s’ha pogut desar.', 'danger');
+              return;
+            }
+
+            state.specialFlowPending = false;
+            state.expulsionModal.hide();
+            processNextMeetingRecord();
+          })
+          .withFailureHandler((error) => {
+            setLoading(false);
+            showModalAlert('expulsionAlert', error.message || String(error), 'danger');
+          })
+          .saveExpulsionRecord(payload);
+      }
+
+      function showModalAlert(id, message, type) {
+        const alert = document.getElementById(id);
+        alert.className = `alert alert-${type}`;
+        alert.textContent = message;
+      }
+
+      function handleSpecialModalHidden() {
+        if (!state.specialFlowPending) {
+          return;
+        }
+
+        state.specialFlowPending = false;
+        state.saveQueue = [];
+        setSaving(false);
+        showAlert('S’ha cancel·lat el procés especial. Revisa la fila abans de continuar.', 'warning');
+      }
+
+      function abortSpecialFlow(message) {
+        state.specialFlowPending = false;
+        state.saveQueue = [];
+        setSaving(false);
+        showAlert(message || 'S’ha cancel·lat el procés especial.', 'danger');
+      }
+
+      function openStudentDetail(row) {
+        state.studentDetailIncidents = [];
+        document.getElementById('studentDetailModalTitle').textContent = row.alumne || '(sense nom)';
+        document.getElementById('studentDetailSubtitle').textContent = row.grup ? `Grup ${row.grup}` : '';
+        resetStudentDetailModal('Carregant incidències...', 'info');
+        state.studentDetailModal.show();
+
+        setLoading(true);
+        google.script.run
+          .withSuccessHandler((payload) => {
+            setLoading(false);
+            renderStudentDetail(payload);
+          })
+          .withFailureHandler((error) => {
+            setLoading(false);
+            renderStudentDetailFailure(error);
+          })
+          .getStudentIncidentDetailPayload(row.id, document.getElementById('selectedDate').value);
+      }
+
+      function renderStudentDetail(payload) {
+        if (!payload || !payload.ok) {
+          renderStudentDetailFailure(payload || 'Error desconegut.');
+          return;
+        }
+
+        if (payload.status === 'unauthorized' || payload.status === 'out_of_period') {
+          resetStudentDetailModal(payload.message, 'warning');
+          return;
+        }
+
+        document.getElementById('studentDetailModalTitle').textContent = payload.alumne || document.getElementById('studentDetailModalTitle').textContent;
+        document.getElementById('studentDetailSubtitle').textContent = [
+          payload.grup ? `Grup ${payload.grup}` : '',
+          payload.term ? `${payload.term.label}: ${payload.term.start} - avui` : ''
+        ].filter(Boolean).join(' · ');
+
+        state.studentDetailIncidents = payload.incidents || [];
+        populateSelect(document.getElementById('activityFilter'), payload.filters && payload.filters.activities, 'Totes');
+        populateSelect(document.getElementById('teacherFilter'), payload.filters && payload.filters.teachers, 'Tots');
+
+        if (payload.status === 'empty') {
+          showStudentDetailAlert(payload.message || 'No hi ha incidències.', 'info');
+        } else {
+          hideStudentDetailAlert();
+        }
+
+        document.getElementById('studentDetailControls').classList.toggle('d-none', !state.studentDetailIncidents.length);
+        document.getElementById('studentDetailTableWrap').classList.toggle('d-none', !state.studentDetailIncidents.length);
+        renderFilteredStudentDetailRows();
+      }
+
+      function renderStudentDetailFailure(error) {
+        const message = typeof error === 'string' ? error : (error.message || 'Error desconegut.');
+        resetStudentDetailModal(message, 'danger');
+      }
+
+      function resetStudentDetailModal(message, type) {
+        state.studentDetailIncidents = [];
+        document.getElementById('studentDetailRows').innerHTML = '';
+        document.getElementById('studentDetailControls').classList.add('d-none');
+        document.getElementById('studentDetailTableWrap').classList.add('d-none');
+        populateSelect(document.getElementById('activityFilter'), [], 'Totes');
+        populateSelect(document.getElementById('teacherFilter'), [], 'Tots');
+        showStudentDetailAlert(message, type);
+      }
+
+      function renderFilteredStudentDetailRows() {
+        const tbody = document.getElementById('studentDetailRows');
+        const activity = document.getElementById('activityFilter').value;
+        const teacher = document.getElementById('teacherFilter').value;
+        const rows = state.studentDetailIncidents.filter((incident) => {
+          return (!activity || incident.activity === activity) && (!teacher || incident.teacher === teacher);
+        });
+
+        tbody.innerHTML = '';
+
+        if (!rows.length) {
+          const tr = document.createElement('tr');
+          const td = document.createElement('td');
+          td.colSpan = 8;
+          td.className = 'text-center text-secondary py-4';
+          td.textContent = 'No hi ha incidències amb aquests filtres.';
+          tr.appendChild(td);
+          tbody.appendChild(tr);
+          return;
+        }
+
+        rows.forEach((incident) => {
+          const tr = document.createElement('tr');
+
+          appendTextCell(tr, incident.date);
+          appendTextCell(tr, incident.time);
+          appendTextCell(tr, incident.subject);
+          appendTextCell(tr, incident.activity);
+          appendTextCell(tr, formatPoints(incident.points), 'text-end points-cell');
+          appendTextCell(tr, incident.teacher);
+          appendTextCell(tr, incident.message, 'student-detail-note');
+          appendTextCell(tr, incident.internalNote, 'student-detail-note');
+          tbody.appendChild(tr);
+        });
+      }
+
+      function populateSelect(select, values, emptyLabel) {
+        select.innerHTML = '';
+
+        const emptyOption = document.createElement('option');
+        emptyOption.value = '';
+        emptyOption.textContent = emptyLabel;
+        select.appendChild(emptyOption);
+
+        (values || []).forEach((value) => {
+          const option = document.createElement('option');
+          option.value = value;
+          option.textContent = value;
+          select.appendChild(option);
+        });
+      }
+
+      function appendTextCell(row, text, className) {
+        const cell = document.createElement('td');
+
+        if (className) {
+          cell.className = className;
+        }
+
+        cell.textContent = text === null || text === undefined || text === '' ? '-' : text;
+        row.appendChild(cell);
+      }
+
+      function showStudentDetailAlert(message, type) {
+        const alert = document.getElementById('studentDetailAlert');
+        alert.className = `alert alert-${type}`;
+        alert.textContent = message;
+      }
+
+      function hideStudentDetailAlert() {
+        const alert = document.getElementById('studentDetailAlert');
+        alert.className = 'alert d-none';
+        alert.textContent = '';
+      }
+
+      function renderTerm(term) {
+        const termLabel = document.getElementById('termLabel');
+
+        if (!term) {
+          termLabel.textContent = '';
+          return;
+        }
+
+        termLabel.textContent = `${term.label}: ${term.start} - ${term.end}`;
+      }
+
+      function renderIssues(issues) {
+        const section = document.getElementById('issuesSection');
+        const list = document.getElementById('issues');
+        list.innerHTML = '';
+
+        if (!issues.length) {
+          section.classList.add('d-none');
+          return;
+        }
+
+        issues.slice(0, 20).forEach((issue) => {
+          const li = document.createElement('li');
+          li.textContent = issue;
+          list.appendChild(li);
+        });
+
+        if (issues.length > 20) {
+          const li = document.createElement('li');
+          li.textContent = `I ${issues.length - 20} avisos més.`;
+          list.appendChild(li);
+        }
+
+        section.classList.remove('d-none');
+      }
+
+      function renderError(error) {
+        setLoading(false);
+        clearMeetingEditState();
+        showAdminTools(false);
+        showAlert(typeof error === 'string' ? error : (error.message || 'Error desconegut.'), 'danger');
+        renderRows([]);
+        renderIssues([]);
+      }
+
+      function showControls(visible) {
+        document.getElementById('controls').classList.toggle('d-none', !visible);
+      }
+
+      function showAlert(message, type) {
+        const alert = document.getElementById('alert');
+        alert.className = `alert alert-${type} mb-0`;
+        alert.textContent = message;
+      }
+
+      function hideAlert() {
+        const alert = document.getElementById('alert');
+        alert.className = 'alert d-none mb-0';
+        alert.textContent = '';
+      }
+
+      function setLoading(isLoading) {
+        const dateInput = document.getElementById('selectedDate');
+        const overlay = document.getElementById('busyOverlay');
+
+        if (dateInput) {
+          dateInput.disabled = isLoading;
+        }
+
+        if (overlay) {
+          overlay.classList.toggle('active', Boolean(isLoading));
+        }
+      }
+
+      function formatPoints(value) {
+        const textValue = String(value === null || value === undefined || value === '' ? '0' : value).replace(',', '.');
+        const numberValue = Number(textValue);
+
+        if (!Number.isFinite(numberValue)) {
+          return String(value);
+        }
+
+        return Number.isInteger(numberValue) ? String(numberValue) : numberValue.toFixed(2);
+      }
+
+      function normalizeText(value) {
+        return String(value || '')
+          .trim()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase();
+      }
+
+      function parseClientDate(value) {
+        const match = String(value || '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+
+        if (!match) {
+          return new Date();
+        }
+
+        return new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1]));
+      }
+
+      function formatClientDate(date) {
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+
+        return `${day}/${month}/${date.getFullYear()}`;
+      }
+
+      function addClientDays(date, days) {
+        return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+      }
+
+      function showAdminTools(visible) {
+        document.getElementById('adminFab').classList.toggle('d-none', !visible);
+        document.getElementById('saveFab').classList.toggle('d-none', !visible);
+
+        if (!visible) {
+          document.getElementById('adminMenu').classList.add('d-none');
+        }
+
+        syncSaveButtonState();
+      }
+
+      function toggleAdminMenu() {
+        document.getElementById('adminMenu').classList.toggle('d-none');
+      }
+
+      function chooseXlsxFile() {
+        document.getElementById('adminMenu').classList.add('d-none');
+        document.getElementById('xlsxInput').click();
+      }
+
+      function previewUploadedImport(event) {
+        const file = event.target.files && event.target.files[0];
+
+        if (!file) {
+          return;
+        }
+
+        resetImportModal('Fitxer preparat. Confirma per substituir llistat_anual.', 'info');
+        state.importModal.show();
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          state.pendingImport = {
+            type: 'upload',
+            fileName: file.name,
+            content: String(reader.result || '')
+          };
+
+          renderImportPreview({
+            ok: true,
+            source: 'upload',
+            message: 'Fitxer preparat. Confirma per substituir llistat_anual.',
+            fileName: state.pendingImport.fileName,
+            warnings: []
+          });
+        };
+        reader.onerror = () => renderImportFailure('No s’ha pogut llegir el fitxer.');
+        reader.readAsDataURL(file);
+        event.target.value = '';
+      }
+
+      function previewApiImport() {
+        document.getElementById('adminMenu').classList.add('d-none');
+        state.pendingImport = {
+          type: 'api'
+        };
+        resetImportModal('Confirma per descarregar l’informe i substituir llistat_anual.', 'info');
+        state.importModal.show();
+        renderImportPreview({
+          ok: true,
+          source: 'api',
+          message: 'Confirma per descarregar l’informe i substituir llistat_anual.',
+          warnings: []
+        });
+      }
+
+      function renderImportPreview(payload) {
+        if (!payload || !payload.ok) {
+          renderImportFailure(payload || 'Error desconegut.');
+          return;
+        }
+
+        setImportAlert(payload.message, 'success');
+        renderImportSummary(payload);
+        renderImportDiagnostics(payload.details);
+        renderImportWarnings(payload.warnings || []);
+        document.getElementById('confirmImportButton').classList.remove('d-none');
+      }
+
+      function confirmImport() {
+        const pending = state.pendingImport;
+
+        if (!pending) {
+          return;
+        }
+
+        resetImportModal('Substituint llistat_anual...', 'warning');
+        setLoading(true);
+
+        if (pending.type === 'upload') {
+          google.script.run
+            .withSuccessHandler(renderImportSuccess)
+            .withFailureHandler((error) => {
+              setLoading(false);
+              renderImportFailure(error);
+            })
+            .importUploadedIncidentXlsx(pending.content, pending.fileName);
+          return;
+        }
+
+        google.script.run
+          .withSuccessHandler(renderImportSuccess)
+          .withFailureHandler((error) => {
+            setLoading(false);
+            renderImportFailure(error);
+          })
+          .importApiIncidentXlsx();
+      }
+
+      function renderImportSuccess(payload) {
+        if (!payload || !payload.ok) {
+          setLoading(false);
+          renderImportFailure(payload || 'Error desconegut.');
+          return;
+        }
+
+        state.pendingImport = null;
+        setImportAlert(`${payload.message} Files importades: ${payload.importedRows || 0}.`, 'success');
+        renderImportSummary(payload);
+        renderImportDiagnostics(payload.details);
+        renderImportWarnings(payload.warnings || []);
+        document.getElementById('confirmImportButton').classList.add('d-none');
+        loadPayload(document.getElementById('selectedDate').value);
+      }
+
+      function renderImportFailure(error) {
+        const payload = typeof error === 'object' && error !== null ? error : { message: String(error || 'Error desconegut.') };
+        setImportAlert(payload.message || 'Error desconegut.', 'danger');
+        renderImportSummary(payload);
+        renderImportDiagnostics(payload.details);
+        renderImportWarnings(payload.warnings || []);
+        document.getElementById('confirmImportButton').classList.add('d-none');
+      }
+
+      function resetImportModal(message, type) {
+        setImportAlert(message, type);
+        document.getElementById('importSummary').classList.add('d-none');
+        document.getElementById('importDiagnostics').classList.add('d-none');
+        document.getElementById('importWarnings').classList.add('d-none');
+        document.getElementById('confirmImportButton').classList.add('d-none');
+      }
+
+      function setImportAlert(message, type) {
+        const alert = document.getElementById('importAlert');
+        alert.className = `alert alert-${type}`;
+        alert.textContent = message;
+      }
+
+      function renderImportSummary(payload) {
+        const hasSummary = payload && (payload.source || payload.headerRow || payload.importedRows !== undefined);
+        document.getElementById('importSummary').classList.toggle('d-none', !hasSummary);
+
+        if (!hasSummary) {
+          return;
+        }
+
+        document.getElementById('importSource').textContent = payload.source || '-';
+        document.getElementById('importFile').textContent = payload.fileName || payload.sourceSheetName || '-';
+        document.getElementById('importHeaderRow').textContent = payload.headerRow || '-';
+        document.getElementById('importRows').textContent = payload.importedRows === undefined ? '-' : payload.importedRows;
+      }
+
+      function renderImportDiagnostics(details) {
+        const section = document.getElementById('importDiagnostics');
+        const text = document.getElementById('importDiagnosticsText');
+
+        if (!details || !Object.keys(details).length) {
+          section.classList.add('d-none');
+          text.textContent = '';
+          return;
+        }
+
+        text.textContent = JSON.stringify(details, null, 2);
+        section.classList.remove('d-none');
+      }
+
+      function renderImportWarnings(warnings) {
+        const section = document.getElementById('importWarnings');
+        const list = document.getElementById('importWarningsList');
+        list.innerHTML = '';
+
+        if (!warnings.length) {
+          section.classList.add('d-none');
+          return;
+        }
+
+        warnings.slice(0, 50).forEach((warning) => {
+          const li = document.createElement('li');
+          li.textContent = warning;
+          list.appendChild(li);
+        });
+
+        if (warnings.length > 50) {
+          const li = document.createElement('li');
+          li.textContent = `I ${warnings.length - 50} avisos més.`;
+          list.appendChild(li);
+        }
+
+        section.classList.remove('d-none');
+      }
+</script>

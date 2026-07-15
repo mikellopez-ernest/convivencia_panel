@@ -1,0 +1,30 @@
+{
+  "scriptId": "YOUR_APPS_SCRIPT_PROJECT_ID",
+  "rootDir": "src",
+  "scriptExtensions": [
+    ".js",
+    ".gs"
+  ],
+  "htmlExtensions": [
+    ".html"
+  ],
+  "jsonExtensions": [
+    ".json"
+  ],
+  "filePushOrder": [
+    "00_Config.js",
+    "01_Strings.js",
+    "10_Database.js",
+    "11_Dates.js",
+    "12_Format.js",
+    "13_Response.js",
+    "14_Timing.js",
+    "20_WebApp.js",
+    "30_Incidents.js",
+    "40_Import.js",
+    "Index.html",
+    "UiStyles.html",
+    "UiScripts.html"
+  ],
+  "skipSubdirectories": false
+}
