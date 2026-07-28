@@ -121,7 +121,15 @@
           <section class="card shadow-sm">
             <div class="card-body">
               <label for="tuesdayDate" class="form-label">Data</label>
-              <input id="tuesdayDate" class="form-control" type="text" autocomplete="off">
+              <div class="d-flex gap-2">
+                <button id="tuesdayPrevWeek" class="btn btn-outline-secondary" type="button" aria-label="Setmana anterior" title="Setmana anterior">
+                  <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                </button>
+                <input id="tuesdayDate" class="form-control" type="text" autocomplete="off">
+                <button id="tuesdayNextWeek" class="btn btn-outline-secondary" type="button" aria-label="Setmana següent" title="Setmana següent">
+                  <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                </button>
+              </div>
             </div>
           </section>
           <section class="card shadow-sm">
@@ -247,6 +255,10 @@
       <i class="bi bi-floppy-fill" aria-hidden="true"></i>
     </button>
 
+    <button id="summaryFab" class="action-fab summary-fab btn btn-secondary rounded-circle shadow d-none" type="button" aria-label="Resum de la reunió" title="Resum de la reunió">
+      <i class="bi bi-file-earmark-text" aria-hidden="true"></i>
+    </button>
+
     <button id="adminFab" class="action-fab admin-fab btn btn-primary rounded-circle shadow d-none" type="button" aria-label="Actualitzar dades" title="Actualitzar dades">
       <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
     </button>
@@ -334,6 +346,28 @@
             </div>
           </div>
           <div class="modal-footer">
+            <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Tancar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="meetingSummaryModal" tabindex="-1" aria-labelledby="meetingSummaryModalTitle" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2 id="meetingSummaryModalTitle" class="modal-title h5">Resum de la reunió</h2>
+            <button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Tancar"></button>
+          </div>
+          <div class="modal-body">
+            <div id="meetingSummaryAlert" class="alert d-none" role="alert"></div>
+            <textarea id="meetingSummaryText" class="form-control summary-textarea" rows="18" readonly></textarea>
+          </div>
+          <div class="modal-footer">
+            <button id="copyMeetingSummaryButton" class="btn btn-primary" type="button">
+              <i class="bi bi-clipboard" aria-hidden="true"></i>
+              Copia
+            </button>
             <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Tancar</button>
           </div>
         </div>

@@ -23,9 +23,10 @@ Required headers, in current order:
 | Column | Header |
 | --- | --- |
 | A | `id` |
-| B | `date` |
-| C | `student` |
-| D | `aprofitament` |
+| B | `row_id` |
+| C | `date` |
+| D | `student` |
+| E | `aprofitament` |
 
 Code should validate headers by name, not only by column position.
 
@@ -41,6 +42,17 @@ Rules:
 - If the sheet does not auto-generate this field, the app must generate the next numeric id when writing new records.
 - New ids should be greater than the current maximum numeric `id` in the sheet.
 - Preserve existing ids.
+
+### `row_id`
+
+Parent meeting record identifier.
+
+Rules:
+
+- References `meeting_records`.`row_id`.
+- Written by the `Equip 3R` flow after the parent meeting record is saved.
+- Used by meeting summaries to list the exact 3R dates and teachers for a decision.
+- Required for new rows.
 
 ### `date`
 

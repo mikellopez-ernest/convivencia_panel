@@ -117,6 +117,12 @@ function nextOrSameWeekday_(date, weekday) {
   return candidate;
 }
 
+function sameWeekWeekday_(date, weekday) {
+  const monday = startOfWeekMonday_(date);
+
+  return addDays_(monday, weekdayIndex_(weekday) - 1);
+}
+
 function addDays_(date, days) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
 }
@@ -155,4 +161,3 @@ function addWorkDays_(date, workDays) {
 
   return candidate;
 }
-

@@ -50,15 +50,21 @@ function deleteLatestMeetingRecord(studentId, selectedDateText) {
   });
 }
 
+function getMeetingSummaryPayload(selectedDateText) {
+  return runWebAction_(function() {
+    return buildMeetingSummaryPayload_(selectedDateText);
+  }, { title: '', text: '', rows: [] });
+}
+
 function getStudyGroupDefaultsPayload(selectedDateText) {
   return runWebAction_(function() {
     return buildStudyGroupDefaultsPayload_(selectedDateText);
   });
 }
 
-function saveStudyGroupStudents(studentName, dates) {
+function saveStudyGroupStudents(studentName, dates, meetingRowId) {
   return runWebAction_(function() {
-    return saveStudyGroupStudents_(studentName, dates);
+    return saveStudyGroupStudents_(studentName, dates, meetingRowId);
   });
 }
 
@@ -68,9 +74,9 @@ function getThirdProjectAvailabilityPayload(startDateText) {
   });
 }
 
-function saveThirdProjectAssignments(studentName, dates) {
+function saveThirdProjectAssignments(studentName, dates, meetingRowId) {
   return runWebAction_(function() {
-    return saveThirdProjectAssignments_(studentName, dates);
+    return saveThirdProjectAssignments_(studentName, dates, meetingRowId);
   });
 }
 

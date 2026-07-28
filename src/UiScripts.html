@@ -6,6 +6,7 @@
         thirdProjectStartPicker: null,
         importModal: null,
         studentDetailModal: null,
+        meetingSummaryModal: null,
         studyGroupModal: null,
         thirdProjectModal: null,
         expulsionModal: null,
@@ -92,6 +93,7 @@
       document.addEventListener('DOMContentLoaded', () => {
         state.importModal = new bootstrap.Modal(document.getElementById('importModal'));
         state.studentDetailModal = new bootstrap.Modal(document.getElementById('studentDetailModal'));
+        state.meetingSummaryModal = new bootstrap.Modal(document.getElementById('meetingSummaryModal'));
         state.studyGroupModal = new bootstrap.Modal(document.getElementById('studyGroupModal'));
         state.thirdProjectModal = new bootstrap.Modal(document.getElementById('thirdProjectModal'));
         state.expulsionModal = new bootstrap.Modal(document.getElementById('expulsionModal'));
@@ -129,6 +131,8 @@
 
         document.getElementById('adminFab').addEventListener('click', toggleAdminMenu);
         document.getElementById('saveFab').addEventListener('click', handleSaveButton);
+        document.getElementById('summaryFab').addEventListener('click', openMeetingSummaryModal);
+        document.getElementById('copyMeetingSummaryButton').addEventListener('click', copyMeetingSummary);
         document.getElementById('uploadImportButton').addEventListener('click', chooseXlsxFile);
         document.getElementById('apiImportButton').addEventListener('click', previewApiImport);
         document.getElementById('xlsxInput').addEventListener('change', previewUploadedImport);
@@ -138,6 +142,8 @@
         document.getElementById('historicGroup').addEventListener('change', renderHistoricRows);
         document.getElementById('historicStudent').addEventListener('input', renderHistoricRows);
         document.getElementById('expulsionSearch').addEventListener('input', handleExpulsionSearchInput);
+        document.getElementById('tuesdayPrevWeek').addEventListener('click', () => shiftTuesdayWeek(-1));
+        document.getElementById('tuesdayNextWeek').addEventListener('click', () => shiftTuesdayWeek(1));
         document.getElementById('thirdPrevMonth').addEventListener('click', () => shiftThirdMonth(-1));
         document.getElementById('thirdNextMonth').addEventListener('click', () => shiftThirdMonth(1));
         document.getElementById('thirdMonthSelect').addEventListener('change', handleThirdMonthSelect);
@@ -265,6 +271,13 @@
         Api.call('getTuesdaySessionsPayload', [dateText || ''])
           .then(renderTuesdayPayload)
           .catch((error) => showAlert(error.message || String(error), 'danger'));
+      }
+
+      function shiftTuesdayWeek(delta) {
+        const current = parseClientDate(document.getElementById('tuesdayDate').value);
+        const target = addClientDays(current, delta * 7);
+
+        loadTuesdaySessions(formatClientDate(target));
       }
 
       function renderTuesdayPayload(payload) {
@@ -773,6 +786,10 @@
               return;
             }
 
+            if (payload.record && payload.record.rowId) {
+              record.rowId = payload.record.rowId;
+            }
+
             markSingleRowAsSaved(record.id);
             handleSpecialMeasure(record);
           })
@@ -827,6 +844,69 @@
         const payload = typeof error === 'object' && error !== null ? error : { message: String(error || 'Error desconegut.') };
         const suffix = payload.errors && payload.errors.length ? ` ${payload.errors.slice(0, 3).join(' ')}` : '';
         showAlert((payload.message || 'No s’han pogut desar els registres.') + suffix, 'danger');
+      }
+
+      function openMeetingSummaryModal() {
+        const alert = document.getElementById('meetingSummaryAlert');
+        const text = document.getElementById('meetingSummaryText');
+
+        alert.className = 'alert d-none';
+        alert.textContent = '';
+        text.value = 'Preparant resum...';
+        state.meetingSummaryModal.show();
+
+        Api.call('getMeetingSummaryPayload', [document.getElementById('selectedDate').value])
+          .then(renderMeetingSummary)
+          .catch((error) => {
+            alert.className = 'alert alert-danger';
+            alert.textContent = error.message || String(error);
+            text.value = '';
+          });
+      }
+
+      function renderMeetingSummary(payload) {
+        const alert = document.getElementById('meetingSummaryAlert');
+        const text = document.getElementById('meetingSummaryText');
+
+        if (!payload || !payload.ok) {
+          alert.className = 'alert alert-danger';
+          alert.textContent = payload && payload.message ? payload.message : 'No s’ha pogut generar el resum.';
+          text.value = '';
+          return;
+        }
+
+        document.getElementById('meetingSummaryModalTitle').textContent = payload.title || 'Resum de la reunió';
+        text.value = payload.text || '';
+
+        if (payload.status === 'empty') {
+          alert.className = 'alert alert-info';
+          alert.textContent = 'No hi ha decisions registrades per aquesta data.';
+        } else {
+          alert.className = 'alert d-none';
+          alert.textContent = '';
+        }
+      }
+
+      function copyMeetingSummary() {
+        const button = document.getElementById('copyMeetingSummaryButton');
+        const text = document.getElementById('meetingSummaryText').value;
+
+        if (!text) {
+          return;
+        }
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(() => {
+            button.innerHTML = '<i class="bi bi-check2" aria-hidden="true"></i> Copiat';
+            window.setTimeout(() => {
+              button.innerHTML = '<i class="bi bi-clipboard" aria-hidden="true"></i> Copia';
+            }, 1500);
+          });
+          return;
+        }
+
+        document.getElementById('meetingSummaryText').select();
+        document.execCommand('copy');
       }
 
       function markEditedRowsAsSaved() {
@@ -1045,7 +1125,7 @@
             setLoading(false);
             showModalAlert('studyGroupAlert', error.message || String(error), 'danger');
           })
-          .saveStudyGroupStudents(state.activeSpecialRow.alumne, dates);
+          .saveStudyGroupStudents(state.activeSpecialRow.alumne, dates, state.activeSpecialRow.rowId);
       }
 
       function openThirdProjectModal(record) {
@@ -1168,7 +1248,7 @@
             setLoading(false);
             showModalAlert('thirdProjectAlert', error.message || String(error), 'danger');
           })
-          .saveThirdProjectAssignments(state.activeSpecialRow.alumne, state.thirdProjectSelectedDates);
+          .saveThirdProjectAssignments(state.activeSpecialRow.alumne, state.thirdProjectSelectedDates, state.activeSpecialRow.rowId);
       }
 
       function openExpulsionModal(record) {
@@ -1204,6 +1284,7 @@
 
       function saveExpulsionFromModal() {
         const payload = {
+          rowId: state.activeSpecialRow.rowId,
           data: document.getElementById('expulsionData').value,
           creator: document.getElementById('expulsionCreator').value,
           role: document.getElementById('expulsionRole').value,
@@ -1517,6 +1598,7 @@
       function showAdminTools(visible) {
         document.getElementById('adminFab').classList.toggle('d-none', !visible);
         document.getElementById('saveFab').classList.toggle('d-none', !visible);
+        document.getElementById('summaryFab').classList.toggle('d-none', !(visible && state.currentPage === 'home'));
 
         if (!visible) {
           document.getElementById('adminMenu').classList.add('d-none');

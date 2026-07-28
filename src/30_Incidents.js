@@ -29,6 +29,7 @@ const INCIDENT_HEADERS = Object.freeze([
 ]);
 
 const MEETING_RECORD_HEADERS = Object.freeze([
+  'row_id',
   'Id',
   'Data',
   'Alumne',
@@ -40,6 +41,7 @@ const MEETING_RECORD_HEADERS = Object.freeze([
 
 const STUDY_GROUP_STUDENT_HEADERS = Object.freeze([
   'id',
+  'row_id',
   'date',
   'student',
   'comment'
@@ -53,6 +55,7 @@ const STUDY_GROUP_TEACHER_HEADERS = Object.freeze([
 
 const THIRD_PROJECT_HEADERS = Object.freeze([
   'id',
+  'row_id',
   'date',
   'student',
   'aprofitament'
@@ -60,6 +63,7 @@ const THIRD_PROJECT_HEADERS = Object.freeze([
 
 const EXPULSION_HEADERS = Object.freeze([
   'id',
+  'row_id',
   'date',
   'student',
   'class',
@@ -266,6 +270,7 @@ function loadMeetingRecordPrefills_(selectedDate) {
 
     prefills[id] = {
       rowNumber: index + 2,
+      rowId: String(row[headers.row_id] || '').trim(),
       id: id,
       data: selectedDateKey,
       comentari: String(row[headers.Comentari] || '').trim(),
@@ -327,8 +332,12 @@ function saveSingleMeetingRecord_(record, selectedDateText) {
     return result;
   }
 
+  const rowResult = result.rowResults && result.rowResults.length ? result.rowResults[0] : {};
+
   return Object.assign({}, result, {
-    record: normalizeMeetingRecordInput_(record)
+    record: Object.assign({}, normalizeMeetingRecordInput_(record), {
+      rowId: rowResult.rowId || ''
+    })
   });
 }
 
@@ -395,23 +404,35 @@ function saveMeetingRecords_(records, selectedDateText) {
     };
   }
 
-  const sheet = openTableSheet_(INCIDENTS_TABLE_NAME, INCIDENTS_MEETING_RECORDS_SHEET_NAME);
-  const headers = requireHeaders_(sheet, MEETING_RECORD_HEADERS, INCIDENTS_TABLE_NAME + '.' + INCIDENTS_MEETING_RECORDS_SHEET_NAME);
-  const rows = editedRecords.map(function(record) {
-    const row = new Array(sheet.getLastColumn()).fill('');
+  const rowsWithIds = withScriptLock_('meeting_records append', function() {
+    const sheet = openTableSheet_(INCIDENTS_TABLE_NAME, INCIDENTS_MEETING_RECORDS_SHEET_NAME);
+    const headers = requireHeaders_(sheet, MEETING_RECORD_HEADERS, INCIDENTS_TABLE_NAME + '.' + INCIDENTS_MEETING_RECORDS_SHEET_NAME);
+    const nextRowId = nextNumericId_(sheet, headers.row_id);
+    const outputRows = editedRecords.map(function(record, index) {
+      const row = new Array(sheet.getLastColumn()).fill('');
+      const rowId = nextRowId + index;
 
-    row[headers.Id] = record.id;
-    row[headers.Data] = formatDateOnly_(selectedDate);
-    row[headers.Alumne] = record.alumne;
-    row[headers.Grup] = record.grup;
-    row[headers.Punts] = record.punts;
-    row[headers.Comentari] = record.comentari;
-    row[headers.Mesura] = record.mesura;
+      row[headers.row_id] = rowId;
+      row[headers.Id] = record.id;
+      row[headers.Data] = formatDateOnly_(selectedDate);
+      row[headers.Alumne] = record.alumne;
+      row[headers.Grup] = record.grup;
+      row[headers.Punts] = record.punts;
+      row[headers.Comentari] = record.comentari;
+      row[headers.Mesura] = record.mesura;
 
-    return row;
+      return {
+        row: row,
+        rowId: String(rowId)
+      };
+    });
+
+    sheet.getRange(sheet.getLastRow() + 1, 1, outputRows.length, outputRows[0].row.length).setValues(outputRows.map(function(item) {
+      return item.row;
+    }));
+
+    return outputRows;
   });
-
-  sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
   timer.mark('rows appended');
   timer.done();
 
@@ -419,10 +440,11 @@ function saveMeetingRecords_(records, selectedDateText) {
     ok: true,
     status: 'saved',
     message: STRINGS.save.success,
-    savedCount: rows.length,
-    rowResults: editedRecords.map(function(record) {
+    savedCount: rowsWithIds.length,
+    rowResults: editedRecords.map(function(record, index) {
       return {
         id: record.id,
+        rowId: rowsWithIds[index].rowId,
         ok: true
       };
     })
@@ -453,6 +475,7 @@ function buildHistoricRecPayload_() {
 
     return {
       rowNumber: index + 2,
+      rowId: String(row[headers.row_id] || '').trim(),
       data: date ? formatDateOnly_(date) : String(row[headers.Data] || '').trim(),
       alumne: String(row[headers.Alumne] || '').trim(),
       grup: String(row[headers.Grup] || '').trim(),
@@ -489,9 +512,10 @@ function buildTuesdaySessionsPayload_(selectedDateText) {
   const timer = createTimer_('buildTuesdaySessionsPayload');
   const config = loadIncidentConfig_();
   const activeUser = assertAuthorized_(config);
+  const studyWeekday = validateWeekday_(config.studyGroupDay, 'Dia_Grup_Estudi');
   const selectedDate = selectedDateText
-    ? parseDateOnly_(selectedDateText, 'selected date')
-    : nextOrSameWeekday_(todayDateOnly_(), validateWeekday_(config.studyGroupDay, 'Dia_Grup_Estudi'));
+    ? sameWeekWeekday_(parseDateOnly_(selectedDateText, 'selected date'), studyWeekday)
+    : nextOrSameWeekday_(todayDateOnly_(), studyWeekday);
 
   const payload = {
     ok: true,
@@ -537,6 +561,7 @@ function loadStudyGroupStudentsForDate_(selectedDate) {
     return {
       rowNumber: index + 2,
       id: String(row[headers.id] || '').trim(),
+      rowId: String(row[headers.row_id] || '').trim(),
       date: formatDateOnly_(date),
       student: String(row[headers.student] || '').trim(),
       comment: String(row[headers.comment] || '').trim()
@@ -596,14 +621,19 @@ function buildStudyGroupDefaultsPayload_(selectedDateText) {
   };
 }
 
-function saveStudyGroupStudents_(studentName, dates) {
+function saveStudyGroupStudents_(studentName, dates, meetingRowId) {
   const config = loadIncidentConfig_();
   assertAuthorized_(config);
 
   const cleanStudent = String(studentName || '').trim();
+  const cleanMeetingRowId = String(meetingRowId || '').trim();
 
   if (!cleanStudent) {
     throw new Error('Student name is required.');
+  }
+
+  if (!cleanMeetingRowId) {
+    throw new Error('Meeting row_id is required.');
   }
 
   const cleanDates = (Array.isArray(dates) ? dates : []).map(function(dateText) {
@@ -622,6 +652,7 @@ function saveStudyGroupStudents_(studentName, dates) {
       const row = new Array(sheet.getLastColumn()).fill('');
 
       row[headers.id] = nextId + index;
+      row[headers.row_id] = cleanMeetingRowId;
       row[headers.date] = formatDateOnly_(date);
       row[headers.student] = cleanStudent;
       row[headers.comment] = '';
@@ -708,6 +739,7 @@ function loadThirdProjectAssignmentsByDate_(startDate, endDate) {
     byDate[dateKey].push({
       rowNumber: index + 2,
       id: String(row[headers.id] || '').trim(),
+      rowId: String(row[headers.row_id] || '').trim(),
       date: dateKey,
       student: String(row[headers.student] || '').trim(),
       aprofitament: String(row[headers.aprofitament] || '').trim()
@@ -717,14 +749,19 @@ function loadThirdProjectAssignmentsByDate_(startDate, endDate) {
   return byDate;
 }
 
-function saveThirdProjectAssignments_(studentName, dates) {
+function saveThirdProjectAssignments_(studentName, dates, meetingRowId) {
   const config = loadIncidentConfig_();
   assertAuthorized_(config);
 
   const cleanStudent = String(studentName || '').trim();
+  const cleanMeetingRowId = String(meetingRowId || '').trim();
 
   if (!cleanStudent) {
     throw new Error('Student name is required.');
+  }
+
+  if (!cleanMeetingRowId) {
+    throw new Error('Meeting row_id is required.');
   }
 
   const cleanDates = (Array.isArray(dates) ? dates : []).map(function(dateText) {
@@ -743,6 +780,7 @@ function saveThirdProjectAssignments_(studentName, dates) {
       const row = new Array(sheet.getLastColumn()).fill('');
 
       row[headers.id] = nextId + index;
+      row[headers.row_id] = cleanMeetingRowId;
       row[headers.date] = formatDateOnly_(date);
       row[headers.student] = cleanStudent;
       row[headers.aprofitament] = '';
@@ -895,6 +933,7 @@ function saveExpulsionRecord_(payload) {
     const nextId = nextNumericId_(sheet, headers.id);
 
     row[headers.id] = nextId;
+    row[headers.row_id] = clean.rowId;
     row[headers.date] = clean.data;
     row[headers.student] = clean.alumne;
     row[headers.class] = clean.classe;
@@ -932,6 +971,7 @@ function buildExpulsionsPayload_(studentQuery) {
     return {
       rowNumber: index + 2,
       id: String(row[headers.id] || '').trim(),
+      rowId: String(row[headers.row_id] || '').trim(),
       date: date ? formatDateOnly_(date) : String(row[headers.date] || '').trim(),
       student: String(row[headers.student] || '').trim(),
       className: String(row[headers.class] || '').trim(),
@@ -976,6 +1016,7 @@ function buildExpulsionsPayload_(studentQuery) {
 function normalizeExpulsionPayload_(payload) {
   const raw = payload || {};
   const clean = {
+    rowId: String(raw.rowId || raw.row_id || '').trim(),
     data: formatDateOnly_(parseDateOnly_(raw.data, 'Data')),
     creator: String(raw.creator || '').trim(),
     role: String(raw.role || '').trim(),
@@ -986,7 +1027,7 @@ function normalizeExpulsionPayload_(payload) {
     incident: String(raw.incident || '').trim()
   };
 
-  ['creator', 'role', 'alumne', 'classe', 'incident'].forEach(function(field) {
+  ['rowId', 'creator', 'role', 'alumne', 'classe', 'incident'].forEach(function(field) {
     if (!clean[field]) {
       throw new Error('Missing required expulsion field: ' + field + '.');
     }
@@ -1035,6 +1076,303 @@ function sendExpulsionEmail_(recipient, studentName, documentUrl) {
   const body = STRINGS.expulsion.emailBody.replace('{{documentUrl}}', documentUrl);
 
   MailApp.sendEmail(recipient, subject, body);
+}
+
+function buildMeetingSummaryPayload_(selectedDateText) {
+  const timer = createTimer_('buildMeetingSummaryPayload');
+  const config = loadIncidentConfig_();
+  const activeUser = assertAuthorized_(config);
+  const selectedDate = selectedDateText
+    ? parseDateOnly_(selectedDateText, 'selected date')
+    : todayDateOnly_();
+  const selectedDateKey = formatDateOnly_(selectedDate);
+  const titleDate = formatDateOnly_(todayDateOnly_());
+  const meetingRows = loadMeetingRecordsForDate_(selectedDate);
+  const rowIds = meetingRows.map(function(record) {
+    return record.rowId;
+  }).filter(Boolean);
+  const expulsionsByRowId = loadExpulsionsByMeetingRowId_(rowIds);
+  const thirdProjectByRowId = loadThirdProjectByMeetingRowId_(rowIds, config);
+  const studyGroupByRowId = loadStudyGroupByMeetingRowId_(rowIds);
+  const nextTuesday = nextWeekdayAfter_(selectedDate, 'tuesday');
+  const nextTuesdayKey = formatDateOnly_(nextTuesday);
+  const nextTuesdayTeachers = loadStudyGroupTeachersForDate_(nextTuesday);
+  const title = "Reunió de l'equip de convivència (" + titleDate + ')';
+  const intro = "Reunit l'equip de convivència el dia " + selectedDateKey + ", s'han pres les decisions següents:";
+  const rowSummaries = meetingRows.map(function(record) {
+    return formatMeetingSummaryRecord_(record, {
+      expulsions: expulsionsByRowId[record.rowId] || [],
+      thirdProject: thirdProjectByRowId[record.rowId] || [],
+      studyGroup: studyGroupByRowId[record.rowId] || []
+    });
+  });
+  const textParts = [title, '', intro];
+
+  if (rowSummaries.length) {
+    textParts.push('', rowSummaries.join('\n\n'));
+  } else {
+    textParts.push('', 'No hi ha decisions registrades per aquesta data.');
+  }
+
+  textParts.push('', formatNextTuesdayTeachersSummary_(nextTuesdayKey, nextTuesdayTeachers));
+  textParts.push('', "Per a qualsevol informació, podeu adreçar-vos als membres de l'equip de convivència.", '', 'Salut,');
+
+  timer.done();
+
+  return {
+    ok: true,
+    status: rowSummaries.length ? 'ok' : 'empty',
+    activeUser: activeUser,
+    selectedDate: selectedDateKey,
+    nextTuesday: nextTuesdayKey,
+    nextTuesdayTeachers: nextTuesdayTeachers,
+    title: title,
+    intro: intro,
+    text: textParts.join('\n'),
+    rows: rowSummaries
+  };
+}
+
+function loadMeetingRecordsForDate_(selectedDate) {
+  const sheet = openTableSheet_(INCIDENTS_TABLE_NAME, INCIDENTS_MEETING_RECORDS_SHEET_NAME);
+  const headers = requireHeaders_(sheet, MEETING_RECORD_HEADERS, INCIDENTS_TABLE_NAME + '.' + INCIDENTS_MEETING_RECORDS_SHEET_NAME);
+  const selectedDateKey = formatDateOnly_(selectedDate);
+
+  return getDataRows_(sheet).map(function(row, index) {
+    const date = parseDateMaybe_(row[headers.Data]);
+
+    if (!date || formatDateOnly_(date) !== selectedDateKey) {
+      return null;
+    }
+
+    return {
+      rowNumber: index + 2,
+      rowId: String(row[headers.row_id] || '').trim(),
+      studentId: String(row[headers.Id] || '').trim(),
+      data: selectedDateKey,
+      alumne: String(row[headers.Alumne] || '').trim(),
+      grup: String(row[headers.Grup] || '').trim(),
+      punts: row[headers.Punts],
+      comentari: String(row[headers.Comentari] || '').trim(),
+      mesura: String(row[headers.Mesura] || '').trim()
+    };
+  }).filter(Boolean);
+}
+
+function loadExpulsionsByMeetingRowId_(rowIds) {
+  const rowIdSet = buildLookupSet_(rowIds);
+
+  if (!Object.keys(rowIdSet).length) {
+    return {};
+  }
+
+  const sheet = openTableSheet_(INCIDENTS_TABLE_NAME, INCIDENTS_EXPULSIONS_SHEET_NAME);
+  const headers = requireHeaders_(sheet, EXPULSION_HEADERS, INCIDENTS_TABLE_NAME + '.' + INCIDENTS_EXPULSIONS_SHEET_NAME);
+  const byRowId = {};
+
+  getDataRows_(sheet).forEach(function(row) {
+    const rowId = String(row[headers.row_id] || '').trim();
+
+    if (!rowIdSet[rowId]) {
+      return;
+    }
+
+    if (!byRowId[rowId]) {
+      byRowId[rowId] = [];
+    }
+
+    byRowId[rowId].push({
+      document: String(row[headers.document] || '').trim()
+    });
+  });
+
+  return byRowId;
+}
+
+function loadThirdProjectByMeetingRowId_(rowIds, config) {
+  const rowIdSet = buildLookupSet_(rowIds);
+
+  if (!Object.keys(rowIdSet).length) {
+    return {};
+  }
+
+  const sheet = openTableSheet_(INCIDENTS_TABLE_NAME, INCIDENTS_3R_PROJECT_SHEET_NAME);
+  const headers = requireHeaders_(sheet, THIRD_PROJECT_HEADERS, INCIDENTS_TABLE_NAME + '.' + INCIDENTS_3R_PROJECT_SHEET_NAME);
+  const byRowId = {};
+
+  getDataRows_(sheet).forEach(function(row) {
+    const rowId = String(row[headers.row_id] || '').trim();
+    const date = parseDateMaybe_(row[headers.date]);
+
+    if (!rowIdSet[rowId] || !date) {
+      return;
+    }
+
+    if (!byRowId[rowId]) {
+      byRowId[rowId] = [];
+    }
+
+    byRowId[rowId].push({
+      date: formatDateOnly_(date),
+      teacher: config.thirdProjectTeachers[weekdayKeyFromDate_(date)] || ''
+    });
+  });
+
+  sortRelatedDates_(byRowId);
+
+  return byRowId;
+}
+
+function loadStudyGroupByMeetingRowId_(rowIds) {
+  const rowIdSet = buildLookupSet_(rowIds);
+
+  if (!Object.keys(rowIdSet).length) {
+    return {};
+  }
+
+  const sheet = openTableSheet_(INCIDENTS_TABLE_NAME, INCIDENTS_STUDY_GROUP_STUDENTS_SHEET_NAME);
+  const headers = requireHeaders_(sheet, STUDY_GROUP_STUDENT_HEADERS, INCIDENTS_TABLE_NAME + '.' + INCIDENTS_STUDY_GROUP_STUDENTS_SHEET_NAME);
+  const byRowId = {};
+
+  getDataRows_(sheet).forEach(function(row) {
+    const rowId = String(row[headers.row_id] || '').trim();
+    const date = parseDateMaybe_(row[headers.date]);
+
+    if (!rowIdSet[rowId] || !date) {
+      return;
+    }
+
+    if (!byRowId[rowId]) {
+      byRowId[rowId] = [];
+    }
+
+    byRowId[rowId].push({
+      date: formatDateOnly_(date)
+    });
+  });
+
+  sortRelatedDates_(byRowId);
+
+  return byRowId;
+}
+
+function formatMeetingSummaryRecord_(record, related) {
+  const lines = [
+    '- ' + record.alumne + '.',
+    '  Grup: ' + record.grup + '.',
+    '  Punts: ' + formatSummaryPoints_(record.punts) + '.',
+    '  Comentari: ' + record.comentari
+  ];
+  const measure = String(record.mesura || '').trim();
+
+  if (measure === 'Expulsió') {
+    const links = related.expulsions.map(function(item) {
+      return item.document;
+    }).filter(Boolean);
+    lines.push('  Expulsió: ' + (links.length ? joinCatalanList_(links) : 'document pendent.'));
+  } else if (measure === 'Equip 3R') {
+    lines.push('  Equip 3R: ' + formatThirdProjectSummary_(related.thirdProject));
+  } else if (measure === 'Dimarts tarda') {
+    lines.push('  Dimarts tarda: ' + formatDateListSummary_(related.studyGroup));
+  }
+
+  return lines.join('\n');
+}
+
+function formatThirdProjectSummary_(items) {
+  const byTeacher = {};
+
+  (items || []).forEach(function(item) {
+    const teacher = item.teacher || 'professor pendent';
+
+    if (!byTeacher[teacher]) {
+      byTeacher[teacher] = [];
+    }
+
+    byTeacher[teacher].push(item.date);
+  });
+
+  const parts = Object.keys(byTeacher).map(function(teacher) {
+    return joinCatalanList_(byTeacher[teacher]) + ' amb ' + teacher;
+  });
+
+  return parts.length ? joinCatalanList_(parts) : 'dates pendents.';
+}
+
+function formatDateListSummary_(items) {
+  const dates = (items || []).map(function(item) {
+    return item.date;
+  }).filter(Boolean);
+
+  return dates.length ? joinCatalanList_(dates) : 'dates pendents.';
+}
+
+function formatNextTuesdayTeachersSummary_(dateText, teachers) {
+  const lines = [
+    'Recordem que els professors encarregats de vigilar els alumnes el proper dimarts ' + dateText + ' són:'
+  ];
+  const cleanTeachers = (teachers || []).filter(Boolean);
+
+  if (!cleanTeachers.length) {
+    lines.push('- No hi ha professorat registrat per aquesta data.');
+    return lines.join('\n');
+  }
+
+  cleanTeachers.forEach(function(teacher) {
+    lines.push('- ' + teacher);
+  });
+
+  return lines.join('\n');
+}
+
+function formatSummaryPoints_(value) {
+  const points = parsePoints_(value);
+  const text = points === null
+    ? String(value || '0')
+    : (Number.isInteger(points) ? String(points) : String(points).replace('.', ','));
+
+  return text + ' punts';
+}
+
+function joinCatalanList_(items) {
+  const cleanItems = (items || []).filter(Boolean);
+
+  if (cleanItems.length <= 1) {
+    return cleanItems[0] || '';
+  }
+
+  return cleanItems.slice(0, -1).join(', ') + ' i ' + cleanItems[cleanItems.length - 1];
+}
+
+function buildLookupSet_(values) {
+  const set = {};
+
+  (values || []).forEach(function(value) {
+    const key = String(value || '').trim();
+
+    if (key) {
+      set[key] = true;
+    }
+  });
+
+  return set;
+}
+
+function sortRelatedDates_(byRowId) {
+  Object.keys(byRowId).forEach(function(rowId) {
+    byRowId[rowId].sort(function(a, b) {
+      const aDate = parseDateMaybe_(a.date);
+      const bDate = parseDateMaybe_(b.date);
+      const aTime = aDate ? aDate.getTime() : 0;
+      const bTime = bDate ? bDate.getTime() : 0;
+
+      return aTime - bTime;
+    });
+  });
+}
+
+function weekdayKeyFromDate_(date) {
+  return WEEKDAY_KEYS[date.getDay() - 1] || '';
 }
 
 function loadAndAggregateIncidents_(periodStart, selectedDate, configuredGroups) {

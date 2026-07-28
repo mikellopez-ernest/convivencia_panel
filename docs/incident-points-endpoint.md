@@ -638,6 +638,20 @@ Post-save special behavior:
 | `Equip 3R` | Open `Equip 3R` popup and write to `3r_project`. |
 | any other value | No extra action unless future specs define it. |
 
+## Meeting Summary Button
+
+`Inici` includes a third floating action button for generating a copy-ready meeting summary.
+
+Behavior:
+
+- Use the selected main date picker value as the meeting date.
+- Load `meeting_records` rows where `Data` equals that selected date.
+- Use `meeting_records`.`row_id` to load related rows from `study_group_students`, `3r_project`, and `expulsions`.
+- Open a modal with a read-only text area and a Copy button.
+- The title uses today's date in `dd/mm/yyyy` format.
+- The intro text uses the selected meeting date.
+- Full text rules are specified in [Meeting summary popup spec](meeting-summary.md).
+
 ## Privacy
 
 The main endpoint table must not display:

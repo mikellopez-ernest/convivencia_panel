@@ -14,7 +14,7 @@ codex-pending.txt
 
 # Secrets and local environment files
 .env
-.env.*
+.env.*f
 !.env.example
 *.pem
 *.key

@@ -130,6 +130,7 @@ This repository can be uploaded to GitHub as source documentation and a `clasp` 
 - [Incidents XLSX import spec](docs/incidents-xlsx-import.md)
 - [Student incident detail popup spec](docs/student-incident-detail-popup.md)
 - [Meeting records spec](docs/meeting-records.md)
+- [Meeting summary popup spec](docs/meeting-summary.md)
 - [Historic REC spec](docs/historic-rec.md)
 - [Study group students spec](docs/study-group-students.md)
 - [Study group teachers spec](docs/study-group-teachers.md)

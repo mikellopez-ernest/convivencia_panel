@@ -23,13 +23,14 @@ Required headers, in current order:
 | Column | Header |
 | --- | --- |
 | A | `id` |
-| B | `date` |
-| C | `student` |
-| D | `class` |
-| E | `start_date` |
-| F | `return_date` |
-| G | `incident` |
-| H | `document` |
+| B | `row_id` |
+| C | `date` |
+| D | `student` |
+| E | `class` |
+| F | `start_date` |
+| G | `return_date` |
+| H | `incident` |
+| I | `document` |
 
 Code should validate headers by name, not only by column position.
 
@@ -45,6 +46,17 @@ Rules:
 - If the sheet does not auto-generate this field, the app must generate the next numeric id when writing new records.
 - New ids should be greater than the current maximum numeric `id` in the sheet.
 - Preserve existing ids.
+
+### `row_id`
+
+Parent meeting record identifier.
+
+Rules:
+
+- References `meeting_records`.`row_id`.
+- Written by the `Expulsió` flow after the parent meeting record is saved.
+- Used by meeting summaries to find the generated expulsion document link for the decision.
+- Required for new rows.
 
 ### `date`
 
