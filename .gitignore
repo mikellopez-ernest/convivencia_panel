@@ -4,12 +4,14 @@ Thumbs.db
 
 # Google Apps Script / clasp local metadata
 .clasp.json
+scripts/*/.clasp.json
 .clasprc.json
 .clasprc
 *.local.clasp.json
 
 # Local deployment commands and assistant working notes
 docs/.commands.md
+scripts/*/docs/.commands.md
 codex-pending.txt
 
 # Secrets and local environment files

@@ -1075,7 +1075,9 @@ function sendExpulsionEmail_(recipient, studentName, documentUrl) {
   const subject = STRINGS.expulsion.emailSubjectPrefix + ' ' + studentName + ' ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm');
   const body = STRINGS.expulsion.emailBody.replace('{{documentUrl}}', documentUrl);
 
-  MailApp.sendEmail(recipient, subject, body);
+  MailApp.sendEmail(recipient, subject, body, {
+    name: STRINGS.email.senderName
+  });
 }
 
 function buildMeetingSummaryPayload_(selectedDateText) {

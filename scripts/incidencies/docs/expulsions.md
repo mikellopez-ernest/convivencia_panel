@@ -197,6 +197,14 @@ The workflow also uses these config values from `Incidències` -> `config`:
 11. Store the generated document edit link in `expulsions`.`document`.
 12. Send email with the generated document edit link.
 
+Email sender display name:
+
+```text
+Equip de convivència
+```
+
+All emails sent by the app should use this sender display name.
+
 ## `Expulsions` Page
 
 The left navigation menu includes:

@@ -24,6 +24,9 @@ const STRINGS = Object.freeze({
     outcomeSaved: 'Aprofitament desat correctament.',
     emptyOutcomeSave: 'No hi ha canvis pendents de desar.'
   },
+  email: {
+    senderName: 'Equip de convivència'
+  },
   expulsion: {
     saved: 'Expulsió desada i correu enviat.',
     emailSubjectPrefix: 'Document de sanció greu',
@@ -45,4 +48,3 @@ const STRINGS = Object.freeze({
     ].join('\n')
   }
 });
-

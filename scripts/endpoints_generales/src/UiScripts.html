@@ -1,0 +1,42 @@
+<script>
+      document.addEventListener('DOMContentLoaded', () => {
+        setLoading(true);
+        google.script.run
+          .withSuccessHandler(renderPayload)
+          .withFailureHandler(renderError)
+          .getInitialTeacherPortalPayload();
+      });
+
+      function renderPayload(payload) {
+        setLoading(false);
+
+        if (!payload || !payload.ok) {
+          renderError(payload && payload.message ? payload.message : 'Error desconegut.');
+          return;
+        }
+
+        if (payload.status === 'unauthorized') {
+          showAlert(payload.message || 'No tens accés a aquesta aplicació', 'warning');
+          return;
+        }
+
+        document.getElementById('activeUser').textContent = payload.activeUser || '';
+        document.getElementById('portalMessage').textContent = payload.message || '';
+        document.getElementById('portal').classList.remove('d-none');
+      }
+
+      function renderError(error) {
+        setLoading(false);
+        showAlert(error.message || String(error), 'danger');
+      }
+
+      function showAlert(message, type) {
+        const alert = document.getElementById('alert');
+        alert.className = `alert alert-${type}`;
+        alert.textContent = message;
+      }
+
+      function setLoading(isLoading) {
+        document.getElementById('busyOverlay').classList.toggle('active', Boolean(isLoading));
+      }
+</script>
