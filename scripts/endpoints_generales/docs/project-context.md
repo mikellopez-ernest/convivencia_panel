@@ -49,9 +49,12 @@ src/
 Current behavior:
 
 - `doGet()` renders a Bootstrap page.
-- Client calls `getInitialTeacherPortalPayload()`.
-- Server returns active user and an empty action list for authorized domain users.
-- UI shows a simple ready state.
+- `doGet(e)` reads `endpoint` and renders the shared Bootstrap page.
+- Default endpoint is `teacher_portal`.
+- `?endpoint=expulsions_form` renders a direct teacher-created expulsion form.
+- The form reads class groups from `Dinantia`.`dinantia_2_dades_alumnes`.`dinantia_group_name`.
+- It reads students from `Dinantia`.`students_cache`, filtered by `group_name`.
+- It writes to `Incidències`.`expulsions` with blank `row_id`, filled `student_id`, and `teacher_email` set to the active user email.
 
 Future actions should add:
 

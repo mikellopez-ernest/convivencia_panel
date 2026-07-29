@@ -96,3 +96,43 @@ function requireHeaders_(sheet, requiredHeaders, context) {
 
   return headers;
 }
+
+function getDataRows_(sheet) {
+  const lastRow = sheet.getLastRow();
+  const lastColumn = sheet.getLastColumn();
+
+  if (lastRow < 2 || lastColumn < 1) {
+    return [];
+  }
+
+  return sheet.getRange(2, 1, lastRow - 1, lastColumn).getValues();
+}
+
+function readColumnValues_(values, columnIndex) {
+  return values.map(function(row) {
+    return String(row[columnIndex] || '').trim();
+  }).filter(Boolean);
+}
+
+function firstColumnValue_(values, columnIndex) {
+  const valuesInColumn = readColumnValues_(values, columnIndex);
+
+  return valuesInColumn.length ? valuesInColumn[0] : '';
+}
+
+function nextNumericId_(sheet, columnIndex) {
+  const lastRow = sheet.getLastRow();
+
+  if (lastRow < 2) {
+    return 1;
+  }
+
+  const values = sheet.getRange(2, columnIndex + 1, lastRow - 1, 1).getValues();
+  const maxId = values.reduce(function(max, row) {
+    const value = Number(row[0]);
+
+    return isFinite(value) && value > max ? value : max;
+  }, 0);
+
+  return maxId + 1;
+}

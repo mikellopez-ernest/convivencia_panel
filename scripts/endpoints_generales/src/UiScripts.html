@@ -1,10 +1,46 @@
 <script>
+      const state = {
+        endpoint: window.APP_ENDPOINT || 'teacher_portal',
+        students: []
+      };
+
+      const Api = {
+        call(name, args = [], options = {}) {
+          const button = options.button || null;
+          setLoading(options.busy !== false);
+
+          if (button) {
+            button.disabled = true;
+          }
+
+          return new Promise((resolve, reject) => {
+            google.script.run
+              .withSuccessHandler((payload) => {
+                setLoading(false);
+                if (button) button.disabled = false;
+                resolve(payload);
+              })
+              .withFailureHandler((error) => {
+                setLoading(false);
+                if (button) button.disabled = false;
+                reject(error);
+              })[name](...args);
+          });
+        }
+      };
+
       document.addEventListener('DOMContentLoaded', () => {
-        setLoading(true);
-        google.script.run
-          .withSuccessHandler(renderPayload)
-          .withFailureHandler(renderError)
-          .getInitialTeacherPortalPayload();
+        flatpickr('.expulsion-date', {
+          dateFormat: 'd/m/Y',
+          locale: flatpickr.l10ns.es,
+          disableMobile: false
+        });
+        document.getElementById('expulsionClass').addEventListener('change', handleClassChange);
+        document.getElementById('expulsionForm').addEventListener('submit', saveExpulsion);
+
+        Api.call('getInitialPayload', [state.endpoint])
+          .then(renderPayload)
+          .catch(renderError);
       });
 
       function renderPayload(payload) {
@@ -20,9 +56,117 @@
           return;
         }
 
+        if (payload.endpoint === 'expulsions_form') {
+          renderExpulsionForm(payload);
+          return;
+        }
+
+        renderPortal(payload);
+      }
+
+      function renderPortal(payload) {
         document.getElementById('activeUser').textContent = payload.activeUser || '';
         document.getElementById('portalMessage').textContent = payload.message || '';
         document.getElementById('portal').classList.remove('d-none');
+      }
+
+      function renderExpulsionForm(payload) {
+        document.getElementById('expulsionsFormPage').classList.remove('d-none');
+        document.getElementById('expulsionData')._flatpickr.setDate(payload.values.data, false, 'd/m/Y');
+        document.getElementById('expulsionStart')._flatpickr.setDate(payload.values.startDate, false, 'd/m/Y');
+        document.getElementById('expulsionReturn')._flatpickr.setDate(payload.values.returnDate, false, 'd/m/Y');
+        populateSelect(document.getElementById('expulsionRole'), payload.creators || [], '');
+        populateSelect(document.getElementById('expulsionClass'), payload.groups || [], '');
+        populateStudentSelect([]);
+      }
+
+      function handleClassChange(event) {
+        const className = event.target.value;
+
+        document.getElementById('generatedDocumentLink').classList.add('d-none');
+        populateStudentSelect([]);
+
+        if (!className) {
+          return;
+        }
+
+        Api.call('getExpulsionStudentsForClass', [className])
+          .then((payload) => {
+            if (!payload || !payload.ok) {
+              renderError(payload && payload.message ? payload.message : 'No s’ha pogut carregar l’alumnat.');
+              return;
+            }
+
+            state.students = payload.students || [];
+            populateStudentSelect(state.students);
+          })
+          .catch(renderError);
+      }
+
+      function saveExpulsion(event) {
+        event.preventDefault();
+
+        const studentSelect = document.getElementById('expulsionStudent');
+        const selectedOption = studentSelect.options[studentSelect.selectedIndex];
+        const payload = {
+          studentId: studentSelect.value,
+          student: selectedOption ? selectedOption.textContent : '',
+          className: document.getElementById('expulsionClass').value,
+          data: document.getElementById('expulsionData').value,
+          creator: document.getElementById('expulsionCreator').value,
+          role: document.getElementById('expulsionRole').value,
+          startDate: document.getElementById('expulsionStart').value,
+          returnDate: document.getElementById('expulsionReturn').value,
+          incident: document.getElementById('expulsionIncident').value
+        };
+        const button = document.getElementById('saveExpulsionButton');
+
+        Api.call('saveStandaloneExpulsion', [payload], { button })
+          .then((response) => {
+            if (!response || !response.ok) {
+              renderError(response && response.message ? response.message : 'No s’ha pogut desar l’expulsió.');
+              return;
+            }
+
+            showAlert(response.message || 'Expulsió desada.', 'success');
+            const link = document.getElementById('generatedDocumentLink');
+            link.href = response.documentUrl || '#';
+            link.classList.toggle('d-none', !response.documentUrl);
+          })
+          .catch(renderError);
+      }
+
+      function populateSelect(select, values, emptyLabel) {
+        select.innerHTML = '';
+        const empty = document.createElement('option');
+        empty.value = '';
+        empty.textContent = emptyLabel || 'Selecciona...';
+        select.appendChild(empty);
+
+        values.forEach((value) => {
+          const option = document.createElement('option');
+          option.value = value;
+          option.textContent = value;
+          select.appendChild(option);
+        });
+      }
+
+      function populateStudentSelect(students) {
+        const select = document.getElementById('expulsionStudent');
+        select.innerHTML = '';
+        const empty = document.createElement('option');
+        empty.value = '';
+        empty.textContent = students.length ? 'Selecciona...' : 'Selecciona primer una classe';
+        select.appendChild(empty);
+
+        students.forEach((student) => {
+          const option = document.createElement('option');
+          option.value = student.studentId;
+          option.textContent = student.studentName;
+          select.appendChild(option);
+        });
+
+        select.disabled = !students.length;
       }
 
       function renderError(error) {

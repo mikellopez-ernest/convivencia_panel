@@ -23,10 +23,12 @@ Required headers, in current order:
 | Column | Header |
 | --- | --- |
 | A | `id` |
-| B | `row_id` |
-| C | `date` |
-| D | `student` |
-| E | `comment` |
+| B | `student_id` |
+| C | `row_id` |
+| D | `date` |
+| E | `student` |
+| F | `comment` |
+| G | `teacher_email` |
 
 Code should validate headers by name, not only by column position.
 
@@ -42,6 +44,16 @@ Rules:
 - If the sheet does not auto-generate this field, the app must generate the next numeric id.
 - New ids should be greater than the current maximum numeric `id` in the sheet.
 - Preserve existing ids.
+
+### `student_id`
+
+Student identifier.
+
+Rules:
+
+- Same stable student key as the source points row.
+- Written when rows are generated from the `Dimarts tarda` workflow.
+- Required for new rows.
 
 ### `row_id`
 
@@ -95,6 +107,17 @@ Rules:
 
 - Created blank when records are generated from the `Dimarts tarda` workflow.
 - May be filled later.
+
+### `teacher_email`
+
+Email of the teacher who last saved the `comment`.
+
+Rules:
+
+- Created blank when records are generated from the `Dimarts tarda` workflow.
+- Set to the active user email when `comment` is saved from the panel.
+- Future teacher-facing endpoints must also set/overwrite this value when saving `comment`.
+- Overwrite on every comment save.
 - Preserve line breaks and punctuation.
 
 ## Relationship With Other Sheets

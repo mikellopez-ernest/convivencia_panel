@@ -23,10 +23,12 @@ Required headers, in current order:
 | Column | Header |
 | --- | --- |
 | A | `id` |
-| B | `row_id` |
-| C | `date` |
-| D | `student` |
-| E | `aprofitament` |
+| B | `student_id` |
+| C | `row_id` |
+| D | `date` |
+| E | `student` |
+| F | `aprofitament` |
+| G | `teacher_email` |
 
 Code should validate headers by name, not only by column position.
 
@@ -42,6 +44,16 @@ Rules:
 - If the sheet does not auto-generate this field, the app must generate the next numeric id when writing new records.
 - New ids should be greater than the current maximum numeric `id` in the sheet.
 - Preserve existing ids.
+
+### `student_id`
+
+Student identifier.
+
+Rules:
+
+- Same stable student key as the source points row.
+- Written when rows are generated from the `Equip 3R` workflow.
+- Required for new rows.
 
 ### `row_id`
 
@@ -90,6 +102,17 @@ Rules:
 ### `aprofitament`
 
 Study outcome for the assigned `Equip 3R` session.
+
+### `teacher_email`
+
+Email of the teacher who last saved `aprofitament`.
+
+Rules:
+
+- Created blank when records are generated from the `Equip 3R` workflow.
+- Set to the active user email when `aprofitament` is saved from the panel.
+- Future teacher-facing endpoints must also set/overwrite this value when saving `aprofitament`.
+- Overwrite on every outcome save.
 
 Allowed values:
 

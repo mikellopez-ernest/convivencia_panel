@@ -23,13 +23,13 @@ Meeting/intervention records source:
 
 - Logical table: `Incidències`
 - Sheet: `meeting_records`
-- Purpose: internal records for student meetings/interventions with parent `row_id`, student `Id`, `Data`, `Alumne`, `Grup`, calculated `Punts`, free `Comentari`, and configured restorative `Mesura`. `row_id` links child rows in `study_group_students`, `3r_project`, and `expulsions`.
+- Purpose: internal records for student meetings/interventions with parent `row_id`, `student_id`, `Data`, `Alumne`, `Grup`, calculated `Punts`, free `Comentari`, and configured restorative `Mesura`. `row_id` links child rows in `study_group_students`, `3r_project`, and `expulsions`.
 
 Study-group assignments source:
 
 - Logical table: `Incidències`
 - Sheet: `study_group_students`
-- Purpose: rows with autonumeric `id`, parent `row_id`, `date`, `student`, and blank/future `comment` for students assigned to study-group sessions.
+- Purpose: rows with autonumeric `id`, `student_id`, parent `row_id`, `date`, `student`, blank/future `comment`, and `teacher_email` for the last teacher who saved the comment.
 
 Study-group teacher assignments source:
 
@@ -41,13 +41,13 @@ Study-group teacher assignments source:
 
 - Logical table: `Incidències`
 - Sheet: `3r_project`
-- Purpose: rows with autonumeric `id`, parent `row_id`, `date`, `student`, and `aprofitament` for students assigned to `Equip 3R`.
+- Purpose: rows with autonumeric `id`, `student_id`, parent `row_id`, `date`, `student`, `aprofitament`, and `teacher_email` for the last teacher who saved the outcome.
 
 Expulsions source:
 
 - Logical table: `Incidències`
 - Sheet: `expulsions`
-- Purpose: rows with autonumeric `id`, parent `row_id`, `date`, `student`, `class`, `start_date`, `return_date`, `incident`, and generated `document` edit URL for expulsion/sanction records.
+- Purpose: rows with autonumeric `id`, `student_id`, parent `row_id`, `date`, `student`, `class`, `start_date`, `return_date`, `incident`, generated `document` edit URL, and `teacher_email` for the teacher who created the expulsion. Blank `row_id` means the expulsion was created outside a meeting.
 
 Planned endpoint: responsive Bootstrap page with a left navigation menu. Menu items are left-aligned and equal priority: `Inici`, `Històric REC`, `Sessions dimarts`, `Equip 3R`, and `Expulsions`. Every DB-backed read/write shows a centered busy indicator. `Inici` shows student points for the selected date. Default date is today. The endpoint first checks active user email against `config.Users`; unauthorized users only see a no-access warning. Authorized flow detects the current academic term from `config`, loads incidents from term start through selected date, sums `Puntuació` by student `Id`, resolves `Grup` from tags, and shows columns: blank status/check icon, `Alumne`, `Grup`, `Punts`, editable `Comentari`, selectable `Mesura`. `Mesura` options come from `config.Mesures_restauratives`. On load, `Inici` also reads `meeting_records` for the selected `Data`; matching `Id` rows prefill `Comentari`/`Mesura` and show a check without orange unsaved state. Hovering the check changes it to a ban/clear icon; clicking deletes the latest matching `meeting_records` row for selected `Data` + student `Id` and resets the table row. Rows turn orange when `Comentari` or `Mesura` is edited. The floating buttons are Save, Refresh/import, and Summary; Summary opens a copy-ready modal built from `meeting_records` for the selected date plus child rows linked by `row_id`, then appends the study-group teachers for the next Tuesday strictly after the selected date and the fixed closing paragraph. The Save button uses a 3.5-inch disk icon, blocks duplicate presses while running, processes edited rows one by one, and appends to `meeting_records`. If `Mesura` is blank, save only. If `Mesura` is `Dimarts tarda`, open a popup asking `Quants dimarts`, generate that many datepickers from the next `config.Dia_Grup_Estudi` weekday after selected date, then append one `study_group_students` row per date with blank `comment`. If `Mesura` is `Equip 3R`, open a popup with a positive number picker, a Spanish-format start-date picker defaulting to today, and a 5x5 Mon-Fri x 4-week table; cells show date, `config.3r teacher` for `config.3r day`, and existing `3r_project.student` or a top-right radio button; occupied cells are green, selected cells turn orange, and exactly the requested count must be selected before writing `3r_project` rows with blank `aprofitament`. If `Mesura` is `Expulsió`, open a popup collecting Data, Creador del document, Com a, Alumne, Classe, Data de començament, Data de tornada, and Incident; `Classe` equals the resolved `Grup`; write `expulsions`, copy `config.expulsions_master_document` into `config.expulsions_folder`, replace `<<...>>` placeholders, share editor link, store it in `expulsions.document`, and email `config.expulsions_email`. Sort by `Punts` ascending, so most negative scores appear first. Click student name to open incident detail popup using `Missatge` and `Nota interna`, sorted newest first with Activity/Teacher filters.
 

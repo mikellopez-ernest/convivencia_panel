@@ -62,9 +62,9 @@ function getStudyGroupDefaultsPayload(selectedDateText) {
   });
 }
 
-function saveStudyGroupStudents(studentName, dates, meetingRowId) {
+function saveStudyGroupStudents(studentId, studentName, dates, meetingRowId) {
   return runWebAction_(function() {
-    return saveStudyGroupStudents_(studentName, dates, meetingRowId);
+    return saveStudyGroupStudents_(studentId, studentName, dates, meetingRowId);
   });
 }
 
@@ -74,9 +74,9 @@ function getThirdProjectAvailabilityPayload(startDateText) {
   });
 }
 
-function saveThirdProjectAssignments(studentName, dates, meetingRowId) {
+function saveThirdProjectAssignments(studentId, studentName, dates, meetingRowId) {
   return runWebAction_(function() {
-    return saveThirdProjectAssignments_(studentName, dates, meetingRowId);
+    return saveThirdProjectAssignments_(studentId, studentName, dates, meetingRowId);
   });
 }
 

@@ -1125,7 +1125,7 @@
             setLoading(false);
             showModalAlert('studyGroupAlert', error.message || String(error), 'danger');
           })
-          .saveStudyGroupStudents(state.activeSpecialRow.alumne, dates, state.activeSpecialRow.rowId);
+          .saveStudyGroupStudents(state.activeSpecialRow.id, state.activeSpecialRow.alumne, dates, state.activeSpecialRow.rowId);
       }
 
       function openThirdProjectModal(record) {
@@ -1248,7 +1248,7 @@
             setLoading(false);
             showModalAlert('thirdProjectAlert', error.message || String(error), 'danger');
           })
-          .saveThirdProjectAssignments(state.activeSpecialRow.alumne, state.thirdProjectSelectedDates, state.activeSpecialRow.rowId);
+          .saveThirdProjectAssignments(state.activeSpecialRow.id, state.activeSpecialRow.alumne, state.thirdProjectSelectedDates, state.activeSpecialRow.rowId);
       }
 
       function openExpulsionModal(record) {
@@ -1285,6 +1285,7 @@
       function saveExpulsionFromModal() {
         const payload = {
           rowId: state.activeSpecialRow.rowId,
+          studentId: state.activeSpecialRow.id,
           data: document.getElementById('expulsionData').value,
           creator: document.getElementById('expulsionCreator').value,
           role: document.getElementById('expulsionRole').value,

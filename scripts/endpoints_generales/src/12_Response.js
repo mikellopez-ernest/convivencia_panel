@@ -9,3 +9,17 @@ function runWebAction_(callback, fallbackPayload) {
     }, fallbackPayload || {});
   }
 }
+
+function withScriptLock_(context, callback) {
+  const lock = LockService.getScriptLock();
+
+  if (!lock.tryLock(15000)) {
+    throw new Error('Could not acquire lock for ' + context + '. Please try again.');
+  }
+
+  try {
+    return callback();
+  } finally {
+    lock.releaseLock();
+  }
+}

@@ -30,7 +30,7 @@ const INCIDENT_HEADERS = Object.freeze([
 
 const MEETING_RECORD_HEADERS = Object.freeze([
   'row_id',
-  'Id',
+  'student_id',
   'Data',
   'Alumne',
   'Grup',
@@ -41,10 +41,12 @@ const MEETING_RECORD_HEADERS = Object.freeze([
 
 const STUDY_GROUP_STUDENT_HEADERS = Object.freeze([
   'id',
+  'student_id',
   'row_id',
   'date',
   'student',
-  'comment'
+  'comment',
+  'teacher_email'
 ]);
 
 const STUDY_GROUP_TEACHER_HEADERS = Object.freeze([
@@ -55,14 +57,17 @@ const STUDY_GROUP_TEACHER_HEADERS = Object.freeze([
 
 const THIRD_PROJECT_HEADERS = Object.freeze([
   'id',
+  'student_id',
   'row_id',
   'date',
   'student',
-  'aprofitament'
+  'aprofitament',
+  'teacher_email'
 ]);
 
 const EXPULSION_HEADERS = Object.freeze([
   'id',
+  'student_id',
   'row_id',
   'date',
   'student',
@@ -70,7 +75,8 @@ const EXPULSION_HEADERS = Object.freeze([
   'start_date',
   'return_date',
   'incident',
-  'document'
+  'document',
+  'teacher_email'
 ]);
 
 const WEEKDAY_KEYS = Object.freeze(['monday', 'tuesday', 'wednesday', 'thursday', 'friday']);
@@ -262,7 +268,7 @@ function loadMeetingRecordPrefills_(selectedDate) {
 
   getDataRows_(sheet).forEach(function(row, index) {
     const rowDate = parseDateMaybe_(row[headers.Data]);
-    const id = String(row[headers.Id] || '').trim();
+    const id = String(row[headers.student_id] || '').trim();
 
     if (!id || !rowDate || formatDateOnly_(rowDate) !== selectedDateKey) {
       return;
@@ -299,7 +305,7 @@ function deleteLatestMeetingRecord_(studentId, selectedDateText) {
 
   getDataRows_(sheet).forEach(function(row, index) {
     const rowDate = parseDateMaybe_(row[headers.Data]);
-    const id = String(row[headers.Id] || '').trim();
+    const id = String(row[headers.student_id] || '').trim();
 
     if (id === cleanId && rowDate && formatDateOnly_(rowDate) === selectedDateKey) {
       targetRow = index + 2;
@@ -384,7 +390,7 @@ function saveMeetingRecords_(records, selectedDateText) {
   editedRecords.forEach(function(record, index) {
     const prefix = 'Row ' + (index + 1) + ': ';
 
-    if (!record.id) errors.push(prefix + 'missing Id.');
+    if (!record.id) errors.push(prefix + 'missing student_id.');
     if (!record.alumne) errors.push(prefix + 'missing Alumne.');
     if (!record.grup) errors.push(prefix + 'missing Grup.');
     if (record.punts === null) errors.push(prefix + 'invalid Punts.');
@@ -413,7 +419,7 @@ function saveMeetingRecords_(records, selectedDateText) {
       const rowId = nextRowId + index;
 
       row[headers.row_id] = rowId;
-      row[headers.Id] = record.id;
+      row[headers.student_id] = record.id;
       row[headers.Data] = formatDateOnly_(selectedDate);
       row[headers.Alumne] = record.alumne;
       row[headers.Grup] = record.grup;
@@ -561,17 +567,19 @@ function loadStudyGroupStudentsForDate_(selectedDate) {
     return {
       rowNumber: index + 2,
       id: String(row[headers.id] || '').trim(),
+      studentId: String(row[headers.student_id] || '').trim(),
       rowId: String(row[headers.row_id] || '').trim(),
       date: formatDateOnly_(date),
       student: String(row[headers.student] || '').trim(),
-      comment: String(row[headers.comment] || '').trim()
+      comment: String(row[headers.comment] || '').trim(),
+      teacherEmail: String(row[headers.teacher_email] || '').trim()
     };
   }).filter(Boolean);
 }
 
 function saveTuesdaySessionComments_(updates) {
   const config = loadIncidentConfig_();
-  assertAuthorized_(config);
+  const activeUser = assertAuthorized_(config);
 
   const cleanUpdates = Array.isArray(updates) ? updates : [];
 
@@ -601,6 +609,7 @@ function saveTuesdaySessionComments_(updates) {
     }
 
     sheet.getRange(sheetRow, headers.comment + 1).setValue(String(update.comment || '').trim());
+    sheet.getRange(sheetRow, headers.teacher_email + 1).setValue(activeUser);
   });
 
   return { ok: true, status: 'saved', message: STRINGS.tuesdaySessions.saved, savedCount: cleanUpdates.length };
@@ -621,12 +630,17 @@ function buildStudyGroupDefaultsPayload_(selectedDateText) {
   };
 }
 
-function saveStudyGroupStudents_(studentName, dates, meetingRowId) {
+function saveStudyGroupStudents_(studentId, studentName, dates, meetingRowId) {
   const config = loadIncidentConfig_();
   assertAuthorized_(config);
 
+  const cleanStudentId = String(studentId || '').trim();
   const cleanStudent = String(studentName || '').trim();
   const cleanMeetingRowId = String(meetingRowId || '').trim();
+
+  if (!cleanStudentId) {
+    throw new Error('Student id is required.');
+  }
 
   if (!cleanStudent) {
     throw new Error('Student name is required.');
@@ -652,6 +666,7 @@ function saveStudyGroupStudents_(studentName, dates, meetingRowId) {
       const row = new Array(sheet.getLastColumn()).fill('');
 
       row[headers.id] = nextId + index;
+      row[headers.student_id] = cleanStudentId;
       row[headers.row_id] = cleanMeetingRowId;
       row[headers.date] = formatDateOnly_(date);
       row[headers.student] = cleanStudent;
@@ -739,22 +754,29 @@ function loadThirdProjectAssignmentsByDate_(startDate, endDate) {
     byDate[dateKey].push({
       rowNumber: index + 2,
       id: String(row[headers.id] || '').trim(),
+      studentId: String(row[headers.student_id] || '').trim(),
       rowId: String(row[headers.row_id] || '').trim(),
       date: dateKey,
       student: String(row[headers.student] || '').trim(),
-      aprofitament: String(row[headers.aprofitament] || '').trim()
+      aprofitament: String(row[headers.aprofitament] || '').trim(),
+      teacherEmail: String(row[headers.teacher_email] || '').trim()
     });
   });
 
   return byDate;
 }
 
-function saveThirdProjectAssignments_(studentName, dates, meetingRowId) {
+function saveThirdProjectAssignments_(studentId, studentName, dates, meetingRowId) {
   const config = loadIncidentConfig_();
   assertAuthorized_(config);
 
+  const cleanStudentId = String(studentId || '').trim();
   const cleanStudent = String(studentName || '').trim();
   const cleanMeetingRowId = String(meetingRowId || '').trim();
+
+  if (!cleanStudentId) {
+    throw new Error('Student id is required.');
+  }
 
   if (!cleanStudent) {
     throw new Error('Student name is required.');
@@ -780,6 +802,7 @@ function saveThirdProjectAssignments_(studentName, dates, meetingRowId) {
       const row = new Array(sheet.getLastColumn()).fill('');
 
       row[headers.id] = nextId + index;
+      row[headers.student_id] = cleanStudentId;
       row[headers.row_id] = cleanMeetingRowId;
       row[headers.date] = formatDateOnly_(date);
       row[headers.student] = cleanStudent;
@@ -850,7 +873,7 @@ function buildThirdProjectMonthPayload_(monthDateText) {
 
 function saveThirdProjectOutcomes_(updates) {
   const config = loadIncidentConfig_();
-  assertAuthorized_(config);
+  const activeUser = assertAuthorized_(config);
 
   const cleanUpdates = Array.isArray(updates) ? updates : [];
   const allowed = {
@@ -889,6 +912,7 @@ function saveThirdProjectOutcomes_(updates) {
     }
 
     sheet.getRange(sheetRow, headers.aprofitament + 1).setValue(aprofitament);
+    sheet.getRange(sheetRow, headers.teacher_email + 1).setValue(activeUser);
   });
 
   return { ok: true, status: 'saved', message: STRINGS.thirdProject.outcomeSaved, savedCount: cleanUpdates.length };
@@ -919,7 +943,7 @@ function buildExpulsionDefaultsPayload_(studentName, className) {
 function saveExpulsionRecord_(payload) {
   const timer = createTimer_('saveExpulsionRecord');
   const config = loadIncidentConfig_();
-  assertAuthorized_(config);
+  const activeUser = assertAuthorized_(config);
   validateExpulsionConfig_(config.expulsions);
 
   const clean = normalizeExpulsionPayload_(payload);
@@ -933,6 +957,7 @@ function saveExpulsionRecord_(payload) {
     const nextId = nextNumericId_(sheet, headers.id);
 
     row[headers.id] = nextId;
+    row[headers.student_id] = clean.studentId;
     row[headers.row_id] = clean.rowId;
     row[headers.date] = clean.data;
     row[headers.student] = clean.alumne;
@@ -941,6 +966,7 @@ function saveExpulsionRecord_(payload) {
     row[headers.return_date] = clean.returnDate;
     row[headers.incident] = clean.incident;
     row[headers.document] = documentUrl;
+    row[headers.teacher_email] = activeUser;
 
     sheet.getRange(sheet.getLastRow() + 1, 1, 1, row.length).setValues([row]);
   });
@@ -971,6 +997,7 @@ function buildExpulsionsPayload_(studentQuery) {
     return {
       rowNumber: index + 2,
       id: String(row[headers.id] || '').trim(),
+      studentId: String(row[headers.student_id] || '').trim(),
       rowId: String(row[headers.row_id] || '').trim(),
       date: date ? formatDateOnly_(date) : String(row[headers.date] || '').trim(),
       student: String(row[headers.student] || '').trim(),
@@ -978,7 +1005,8 @@ function buildExpulsionsPayload_(studentQuery) {
       startDate: startDate ? formatDateOnly_(startDate) : String(row[headers.start_date] || '').trim(),
       returnDate: returnDate ? formatDateOnly_(returnDate) : String(row[headers.return_date] || '').trim(),
       incident: String(row[headers.incident] || '').trim(),
-      document: String(row[headers.document] || '').trim()
+      document: String(row[headers.document] || '').trim(),
+      teacherEmail: String(row[headers.teacher_email] || '').trim()
     };
   });
   const suggestions = uniqueSorted_(allRecords.map(function(record) {
@@ -1017,6 +1045,7 @@ function normalizeExpulsionPayload_(payload) {
   const raw = payload || {};
   const clean = {
     rowId: String(raw.rowId || raw.row_id || '').trim(),
+    studentId: String(raw.studentId || raw.student_id || '').trim(),
     data: formatDateOnly_(parseDateOnly_(raw.data, 'Data')),
     creator: String(raw.creator || '').trim(),
     role: String(raw.role || '').trim(),
@@ -1027,7 +1056,7 @@ function normalizeExpulsionPayload_(payload) {
     incident: String(raw.incident || '').trim()
   };
 
-  ['rowId', 'creator', 'role', 'alumne', 'classe', 'incident'].forEach(function(field) {
+  ['rowId', 'studentId', 'creator', 'role', 'alumne', 'classe', 'incident'].forEach(function(field) {
     if (!clean[field]) {
       throw new Error('Missing required expulsion field: ' + field + '.');
     }
@@ -1150,7 +1179,7 @@ function loadMeetingRecordsForDate_(selectedDate) {
     return {
       rowNumber: index + 2,
       rowId: String(row[headers.row_id] || '').trim(),
-      studentId: String(row[headers.Id] || '').trim(),
+      studentId: String(row[headers.student_id] || '').trim(),
       data: selectedDateKey,
       alumne: String(row[headers.Alumne] || '').trim(),
       grup: String(row[headers.Grup] || '').trim(),

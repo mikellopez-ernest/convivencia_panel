@@ -7,13 +7,13 @@
     <title>Endpoints generals</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet">
     <?!= include('UiStyles'); ?>
   </head>
   <body>
     <main class="container py-4">
       <header class="mb-4">
-        <h1 class="h3 mb-1">Endpoints generals</h1>
-        <p class="text-secondary mb-0">Espai general perquè el professorat pugui interactuar amb eines del centre.</p>
+        <h1 class="h3 mb-0">Institut Ernest Lluch i Martín</h1>
       </header>
 
       <section id="alert" class="alert d-none" role="alert"></section>
@@ -31,6 +31,53 @@
           </div>
         </div>
       </section>
+
+      <section id="expulsionsFormPage" class="card shadow-sm d-none">
+        <div class="card-body">
+          <h2 class="h5 mb-3">Formulari d'expulsió</h2>
+          <form id="expulsionForm" class="row g-3">
+            <div class="col-md-6">
+              <label for="expulsionData" class="form-label">Data</label>
+              <input id="expulsionData" class="form-control expulsion-date" type="text" required>
+            </div>
+            <div class="col-md-6">
+              <label for="expulsionCreator" class="form-label">Creador del document</label>
+              <input id="expulsionCreator" class="form-control" type="text" placeholder="Qui signa el document?" required>
+            </div>
+            <div class="col-md-6">
+              <label for="expulsionRole" class="form-label">Com a</label>
+              <select id="expulsionRole" class="form-select" required></select>
+            </div>
+            <div class="col-md-6">
+              <label for="expulsionClass" class="form-label">Classe</label>
+              <select id="expulsionClass" class="form-select" required></select>
+            </div>
+            <div class="col-12">
+              <label for="expulsionStudent" class="form-label">Alumne</label>
+              <select id="expulsionStudent" class="form-select" required disabled></select>
+            </div>
+            <div class="col-md-6">
+              <label for="expulsionStart" class="form-label">Data de començament</label>
+              <input id="expulsionStart" class="form-control expulsion-date" type="text" required>
+            </div>
+            <div class="col-md-6">
+              <label for="expulsionReturn" class="form-label">Data de tornada</label>
+              <input id="expulsionReturn" class="form-control expulsion-date" type="text" required>
+            </div>
+            <div class="col-12">
+              <label for="expulsionIncident" class="form-label">Incident</label>
+              <textarea id="expulsionIncident" class="form-control" rows="5" placeholder="Escriu aquí els motius de l'expulsió" required></textarea>
+            </div>
+            <div class="col-12 d-flex align-items-center gap-3">
+              <button id="saveExpulsionButton" class="btn btn-primary" type="submit">
+                <i class="bi bi-save" aria-hidden="true"></i>
+                Desa
+              </button>
+              <a id="generatedDocumentLink" class="d-none" target="_blank" rel="noopener">Obre el document generat</a>
+            </div>
+          </form>
+        </div>
+      </section>
     </main>
 
     <div id="busyOverlay" class="busy-overlay" aria-live="polite" aria-busy="true">
@@ -39,6 +86,11 @@
       </div>
     </div>
 
+    <script>
+      window.APP_ENDPOINT = <?!= JSON.stringify(endpoint) ?>;
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <?!= include('UiScripts'); ?>
   </body>

@@ -23,14 +23,16 @@ Required headers, in current order:
 | Column | Header |
 | --- | --- |
 | A | `id` |
-| B | `row_id` |
-| C | `date` |
-| D | `student` |
-| E | `class` |
-| F | `start_date` |
-| G | `return_date` |
-| H | `incident` |
-| I | `document` |
+| B | `student_id` |
+| C | `row_id` |
+| D | `date` |
+| E | `student` |
+| F | `class` |
+| G | `start_date` |
+| H | `return_date` |
+| I | `incident` |
+| J | `document` |
+| K | `teacher_email` |
 
 Code should validate headers by name, not only by column position.
 
@@ -47,6 +49,17 @@ Rules:
 - New ids should be greater than the current maximum numeric `id` in the sheet.
 - Preserve existing ids.
 
+### `student_id`
+
+Student identifier.
+
+Rules:
+
+- Stable student key.
+- For meeting-created expulsions, it comes from the source points row.
+- For direct teacher-created expulsions in `endpoints_generales`, it comes from `Dinantia`.`students_cache`.`student_id`.
+- Required for new rows.
+
 ### `row_id`
 
 Parent meeting record identifier.
@@ -56,7 +69,7 @@ Rules:
 - References `meeting_records`.`row_id`.
 - Written by the `Expulsió` flow after the parent meeting record is saved.
 - Used by meeting summaries to find the generated expulsion document link for the decision.
-- Required for new rows.
+- Blank when the expulsion is created directly by a teacher outside the meeting workflow.
 
 ### `date`
 
@@ -84,6 +97,17 @@ Format:
 ```text
 surnames, name
 ```
+
+### `teacher_email`
+
+Email of the teacher who created the expulsion.
+
+Rules:
+
+- Set when an expulsion row is created.
+- From the panel, use the active user email.
+- From `endpoints_generales`, use the active teacher email.
+- Preserve as the creation actor unless a future edit workflow explicitly changes it.
 
 Rules:
 

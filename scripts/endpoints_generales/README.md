@@ -31,13 +31,24 @@ Initial infrastructure includes:
 - Active-user detection.
 - Domain-based access for `@iernestlluch.cat`.
 - Shared database registry connector using script property `db`.
-- Placeholder payload for future teacher actions.
+- Routed endpoint `?endpoint=expulsions_form` for direct teacher-created expulsions.
 
 ## Required Script Property
 
 | Property | Meaning |
 | --- | --- |
 | `db` | Spreadsheet ID of the shared database registry spreadsheet. |
+
+## Endpoints
+
+| Endpoint | Purpose |
+| --- | --- |
+| default / `teacher_portal` | General landing page. |
+| `expulsions_form` | Teacher-facing expulsion form. |
+
+Specs:
+
+- [Expulsions form endpoint](docs/expulsions-form.md)
 
 ## Local Commands
 
