@@ -79,7 +79,7 @@ Import/API properties:
 
 | Property | Meaning |
 | --- | --- |
-| `tracking_report_api_url` | API endpoint URL. Current value: `http://135.181.44.245/api/v1/dinantia/tracking/export`. |
+| `tracking_report_api_url` | API endpoint URL. Current value: `https://automation.hetzner.iernestlluch.info/api/v1/dinantia/tracking/export`. |
 | `tracking_report_bearer` | Bearer token for the API request. |
 | `tracking_report_school_year` | School year sent in the API body, e.g. `2025-26`. |
 

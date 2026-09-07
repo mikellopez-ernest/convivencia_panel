@@ -154,7 +154,7 @@ Reference terminal command currently used by the user:
 
 ```sh
 curl \
-  "http://135.181.44.245/api/v1/dinantia/tracking/export" \
+  "https://automation.hetzner.iernestlluch.info/api/v1/dinantia/tracking/export" \
   --request POST \
   --header "Authorization: Bearer <token>" \
   --header "Content-Type: application/json" \
@@ -170,7 +170,7 @@ Required properties:
 
 | Property | Meaning |
 | --- | --- |
-| `tracking_report_api_url` | API endpoint URL for the tracking report download. Default/current value: `http://135.181.44.245/api/v1/dinantia/tracking/export`. |
+| `tracking_report_api_url` | API endpoint URL for the tracking report download. Default/current value: `https://automation.hetzner.iernestlluch.info/api/v1/dinantia/tracking/export`. |
 | `tracking_report_bearer` | Bearer token used in the `Authorization` header. |
 | `tracking_report_school_year` | School year sent in the JSON body, for example `2025-26`. |
 
