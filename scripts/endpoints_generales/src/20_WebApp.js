@@ -30,12 +30,27 @@ function saveStandaloneExpulsion(payload) {
   });
 }
 
+function getDimartsPayload(selectedDateText) {
+  return runWebAction_(function() {
+    return buildDimartsPayload_(selectedDateText);
+  }, { teachers: [], students: [] });
+}
+
+function saveDimartsComments(updates) {
+  return runWebAction_(function() {
+    return saveDimartsComments_(updates);
+  }, { savedCount: 0 });
+}
+
 function authorizeEndpointPermissions() {
   const settings = loadExpulsionSettings_();
 
   loadDinantiaGroups_();
   loadDinantiaStudentsForGroup_('');
   openTableSheet_(TABLE_INCIDENCIES, SHEET_EXPULSIONS).getLastRow();
+  openTableSheet_(TABLE_INCIDENCIES, SHEET_STUDY_GROUP_STUDENTS).getLastRow();
+  openTableSheet_(TABLE_INCIDENCIES, SHEET_STUDY_GROUP_TEACHERS).getLastRow();
+  loadDimartsSettings_();
   DriveApp.getFolderById(settings.folderId).getName();
   const master = DriveApp.getFileById(settings.masterDocumentId);
   DocumentApp.openById(master.getId()).getName();

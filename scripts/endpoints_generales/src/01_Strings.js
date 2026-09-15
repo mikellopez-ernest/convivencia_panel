@@ -27,6 +27,12 @@ const STRINGS = Object.freeze({
       'Atentament,'
     ].join('\n')
   },
+  dimarts: {
+    saved: 'Comentaris desats.',
+    emptySave: 'No hi ha comentaris per desar.',
+    noTeachers: 'No hi ha professorat assignat.',
+    noStudents: 'No hi ha alumnat assignat per aquesta data.'
+  },
   errors: {
     missingDatabaseProperty: 'Script property "db" is required.',
     missingRegistrySheet: 'Missing sheet "tables" in database registry.'

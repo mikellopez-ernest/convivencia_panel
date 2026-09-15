@@ -44,7 +44,8 @@ When developed, selecting `Històric REC` should show this read-only historic re
 
 Use the same access-control rules as `Inici`:
 
-- Read authorized users from `Incidències` -> `config` -> `Users`.
+- Read authorized entries from script property `access_granted`.
+- Resolve non-email role/càrrec entries through `Càrrega lectiva`.
 - If the active user is not authorized, show only the no-access warning.
 - Unauthorized users must not receive `meeting_records` data.
 
@@ -141,7 +142,7 @@ No hi ha registres amb aquests filtres.
 ## Minimal Runtime Flow
 
 1. Load `config`.
-2. Check active user against `config`.`Users`.
+2. Check active user against script property `access_granted`.
 3. If unauthorized, show only the no-access warning.
 4. Load valid groups from `config`.`Grups`.
 5. Load rows from `meeting_records`.

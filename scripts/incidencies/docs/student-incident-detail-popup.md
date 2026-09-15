@@ -93,7 +93,7 @@ This popup is internal/staff-facing.
 Rules:
 
 - `Missatge` can be shown as the family-visible message sent for the incident.
-- `Nota interna` can be shown in this popup because the endpoint is restricted by `config.Users`.
+- `Nota interna` can be shown in this popup because the endpoint is restricted by `access_granted`.
 - Do not expose this popup to unauthorized users.
 - Unauthorized users must not receive popup incident data in server responses.
 

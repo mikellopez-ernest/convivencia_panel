@@ -1,5 +1,7 @@
 function runWebAction_(callback, fallbackPayload) {
   try {
+    assertUserAccess_();
+
     return callback();
   } catch (error) {
     return Object.assign({

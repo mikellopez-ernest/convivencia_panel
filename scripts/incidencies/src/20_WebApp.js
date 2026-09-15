@@ -1,4 +1,10 @@
 function doGet() {
+  const access = getAccessDecision_();
+
+  if (!access.allowed) {
+    return createAccessDeniedOutput_(access);
+  }
+
   return HtmlService
     .createTemplateFromFile('Index')
     .evaluate()
@@ -11,7 +17,9 @@ function include(filename) {
 }
 
 function getInitialIncidentPointsPayload() {
-  return getIncidentPointsPayload();
+  return runWebAction_(function() {
+    return buildIncidentPointsPayload_();
+  }, { rows: [], issues: [] });
 }
 
 function getIncidentPointsPayload(selectedDateText) {

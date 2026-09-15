@@ -415,15 +415,18 @@ Deployment model:
 - The web app will execute as owner.
 - The owner/executing account is expected to be `admindomini@iernestlluch.cat`.
 - The deployed web app may be accessible to anyone with an `@iernestlluch.cat` email.
-- App-level access is controlled by `Incidències` -> `config` -> `Users`.
+- App-level access is controlled by script property `access_granted`.
+- Direct email entries are allowed immediately.
+- Non-email entries are treated as roles/càrrecs and resolved through `Càrrega lectiva` -> `carrecs` and `Càrrega lectiva` -> `professors`.
 
 Authorization rules:
 
 - Read the active user's email from Apps Script.
 - Normalize user emails by trimming whitespace and lowercasing.
-- Load authorized users from all non-empty cells in `config`.`Users`.
-- If the active user's email is in `Users`, continue with the normal endpoint flow.
-- If the active user's email is not in `Users`, show only an access warning.
+- Read allowed entries from script property `access_granted`.
+- If the active user's email is directly listed or resolved through an allowed role, continue with the normal endpoint flow.
+- If the active user's email is not allowed, show only an access warning.
+- Protect every `google.script.run` server method with the same access decision.
 - Unauthorized users must not receive incident data, scores, internal notes, or family messages.
 
 Unauthorized warning:
@@ -526,7 +529,7 @@ Initial load:
 
 1. Set date picker to today.
 2. Load `config`.
-3. Check active user against `config`.`Users`.
+3. Check active user against script property `access_granted`.
 4. If unauthorized, show only the no-access warning.
 5. If authorized, determine active term for today.
 6. If outside academic period, show out-of-period message.
@@ -612,7 +615,7 @@ For each edited row, write:
 
 Validation before writing:
 
-- Validate access against `config`.`Users`.
+- Validate access against script property `access_granted`.
 - Validate `meeting_records` required headers.
 - Validate the selected date as `dd/mm/yyyy`.
 - Validate each edited row has `Id`, `Alumne`, `Grup`, and numeric `Punts`.

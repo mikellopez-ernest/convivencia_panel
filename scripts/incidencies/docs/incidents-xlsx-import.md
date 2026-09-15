@@ -305,10 +305,6 @@ Because this import replaces the whole destination table:
 
 ## Access Control
 
-The upload/import UI should use the same authorization source as the endpoint:
-
-| Logical table | Sheet | Column |
-| --- | --- | --- |
-| `Incidències` | `config` | `Users` |
+The upload/import UI should use the same `access_granted` role/email authorization source as the endpoint.
 
 Unauthorized users must not be able to upload, preview, or replace data.

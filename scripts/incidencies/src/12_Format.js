@@ -24,6 +24,39 @@ function normalizeEmail_(email) {
   return String(email || '').trim().toLowerCase();
 }
 
+function toDisplayString_(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value).trim();
+}
+
+function normalizeText_(value) {
+  return toDisplayString_(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('ca');
+}
+
+function splitCommaList_(value) {
+  return toDisplayString_(value)
+    .split(',')
+    .map(function(item) {
+      return toDisplayString_(item);
+    })
+    .filter(Boolean);
+}
+
+function escapeHtml_(value) {
+  return toDisplayString_(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function getActiveUserEmail_() {
   return normalizeEmail_(Session.getActiveUser().getEmail());
 }
@@ -48,4 +81,3 @@ function uniqueSorted_(values) {
       return a.localeCompare(b, 'ca');
     });
 }
-

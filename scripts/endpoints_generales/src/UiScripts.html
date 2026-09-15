@@ -1,7 +1,8 @@
 <script>
       const state = {
         endpoint: window.APP_ENDPOINT || 'teacher_portal',
-        students: []
+        students: [],
+        dimartsRows: []
       };
 
       const Api = {
@@ -35,8 +36,17 @@
           locale: flatpickr.l10ns.es,
           disableMobile: false
         });
+        flatpickr('.dimarts-date', {
+          dateFormat: 'd/m/Y',
+          locale: flatpickr.l10ns.es,
+          disableMobile: false,
+          onChange: (_selectedDates, dateStr) => loadDimarts(dateStr)
+        });
         document.getElementById('expulsionClass').addEventListener('change', handleClassChange);
         document.getElementById('expulsionForm').addEventListener('submit', saveExpulsion);
+        document.getElementById('previousWeekButton').addEventListener('click', () => shiftDimartsWeek(-1));
+        document.getElementById('nextWeekButton').addEventListener('click', () => shiftDimartsWeek(1));
+        document.getElementById('saveDimartsButton').addEventListener('click', saveDimartsComments);
 
         Api.call('getInitialPayload', [state.endpoint])
           .then(renderPayload)
@@ -58,6 +68,11 @@
 
         if (payload.endpoint === 'expulsions_form') {
           renderExpulsionForm(payload);
+          return;
+        }
+
+        if (payload.endpoint === 'dimarts') {
+          renderDimarts(payload);
           return;
         }
 
@@ -136,6 +151,110 @@
           .catch(renderError);
       }
 
+      function renderDimarts(payload) {
+        document.getElementById('dimartsPage').classList.remove('d-none');
+        document.getElementById('dimartsActiveUser').textContent = payload.activeUser || '';
+        document.getElementById('dimartsDate')._flatpickr.setDate(payload.selectedDate, false, 'd/m/Y');
+        renderDimartsTeachers(payload.teachers || []);
+        renderDimartsStudents(payload.students || []);
+      }
+
+      function loadDimarts(dateText) {
+        if (!dateText) {
+          return;
+        }
+
+        Api.call('getDimartsPayload', [dateText])
+          .then((payload) => {
+            if (!payload || !payload.ok) {
+              renderError(payload && payload.message ? payload.message : 'No s’ha pogut carregar la sessió.');
+              return;
+            }
+
+            renderDimarts(payload);
+          })
+          .catch(renderError);
+      }
+
+      function shiftDimartsWeek(direction) {
+        const input = document.getElementById('dimartsDate');
+        const current = input._flatpickr.selectedDates[0];
+
+        if (!current) {
+          return;
+        }
+
+        const next = new Date(current.getFullYear(), current.getMonth(), current.getDate() + (direction * 7));
+        input._flatpickr.setDate(next, false);
+        loadDimarts(formatDate(next));
+      }
+
+      function renderDimartsTeachers(teachers) {
+        document.getElementById('dimartsTeachers').textContent = teachers.length
+          ? teachers.join(', ')
+          : 'No hi ha professorat assignat.';
+      }
+
+      function renderDimartsStudents(students) {
+        state.dimartsRows = students;
+        const body = document.getElementById('dimartsStudentsBody');
+        body.innerHTML = '';
+
+        if (!students.length) {
+          const row = document.createElement('tr');
+          const cell = document.createElement('td');
+          cell.colSpan = 2;
+          cell.className = 'text-secondary';
+          cell.textContent = 'No hi ha alumnat assignat per aquesta data.';
+          row.appendChild(cell);
+          body.appendChild(row);
+          return;
+        }
+
+        students.forEach((student) => {
+          const row = document.createElement('tr');
+          row.dataset.id = student.id;
+
+          const nameCell = document.createElement('td');
+          nameCell.className = 'fw-semibold';
+          nameCell.textContent = student.student || '';
+
+          const commentCell = document.createElement('td');
+          const input = document.createElement('textarea');
+          input.className = 'form-control dimarts-comment';
+          input.rows = 2;
+          input.dataset.id = student.id;
+          input.value = student.comment || '';
+          input.addEventListener('input', () => row.classList.add('table-warning'));
+          commentCell.appendChild(input);
+
+          row.appendChild(nameCell);
+          row.appendChild(commentCell);
+          body.appendChild(row);
+        });
+      }
+
+      function saveDimartsComments() {
+        const updates = Array.from(document.querySelectorAll('.dimarts-comment')).map((input) => ({
+          id: input.dataset.id,
+          comment: input.value
+        }));
+        const button = document.getElementById('saveDimartsButton');
+
+        Api.call('saveDimartsComments', [updates], { button })
+          .then((payload) => {
+            if (!payload || !payload.ok) {
+              renderError(payload && payload.message ? payload.message : 'No s’han pogut desar els comentaris.');
+              return;
+            }
+
+            showAlert(payload.message || 'Comentaris desats.', 'success');
+            document.getElementById('dimartsStatus').textContent = payload.savedCount + ' registre(s) desat(s).';
+            document.querySelectorAll('#dimartsStudentsBody tr').forEach((row) => row.classList.remove('table-warning'));
+          })
+          .catch(renderError);
+      }
+
       function populateSelect(select, values, emptyLabel) {
         select.innerHTML = '';
         const empty = document.createElement('option');
@@ -182,5 +301,11 @@
 
       function setLoading(isLoading) {
         document.getElementById('busyOverlay').classList.toggle('active', Boolean(isLoading));
+      }
+
+      function formatDate(date) {
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        return `${day}/${month}/${date.getFullYear()}`;
       }
 </script>

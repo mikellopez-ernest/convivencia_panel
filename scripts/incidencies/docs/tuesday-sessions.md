@@ -50,7 +50,8 @@ When developed, selecting `Sessions dimarts` should show this page inside the sa
 
 Use the same access-control rules as `Inici`:
 
-- Read authorized users from `Incidències` -> `config` -> `Users`.
+- Read authorized entries from script property `access_granted`.
+- Resolve non-email role/càrrec entries through `Càrrega lectiva`.
 - If the active user is not authorized, show only the no-access warning.
 - Unauthorized users must not receive study-group data.
 
@@ -192,7 +193,7 @@ No hi ha professorat assignat.
 ## Minimal Runtime Flow
 
 1. Load `config`.
-2. Check active user against `config`.`Users`.
+2. Check active user against script property `access_granted`.
 3. If unauthorized, show only the no-access warning.
 4. Read and validate `config`.`Dia_Grup_Estudi`.
 5. Set date picker default to today or the next configured weekday.

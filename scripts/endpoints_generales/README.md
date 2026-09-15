@@ -32,6 +32,7 @@ Initial infrastructure includes:
 - Domain-based access for `@iernestlluch.cat`.
 - Shared database registry connector using script property `db`.
 - Routed endpoint `?endpoint=expulsions_form` for direct teacher-created expulsions.
+- Routed endpoint `?endpoint=dimarts` for study-group session comments.
 
 ## Required Script Property
 
@@ -45,10 +46,12 @@ Initial infrastructure includes:
 | --- | --- |
 | default / `teacher_portal` | General landing page. |
 | `expulsions_form` | Teacher-facing expulsion form. |
+| `dimarts` | Teacher-facing study-group session comments. |
 
 Specs:
 
 - [Expulsions form endpoint](docs/expulsions-form.md)
+- [Dimarts endpoint](docs/dimarts.md)
 
 ## Local Commands
 

@@ -22,3 +22,18 @@ const INCIDENT_CONFIG_CACHE_KEY = 'incidents-config:v1';
 const TRACKING_REPORT_API_URL_PROPERTY = 'tracking_report_api_url';
 const TRACKING_REPORT_BEARER_PROPERTY = 'tracking_report_bearer';
 const TRACKING_REPORT_SCHOOL_YEAR_PROPERTY = 'tracking_report_school_year';
+
+const ACCESS_GRANTED_PROPERTY_NAME = 'access_granted';
+const WORKLOAD_TABLE_NAME = 'Càrrega lectiva';
+const WORKLOAD_PROFESSORS_SHEET_NAME = 'professors';
+const WORKLOAD_CARRECS_SHEET_NAME = 'carrecs';
+
+const WORKLOAD_PROFESSORS_COLUMNS = Object.freeze({
+  correuInstit: 12,
+  teacherKey: 17
+});
+
+const CARRECS_COLUMNS = Object.freeze({
+  carrec: 1,
+  asignado: 4
+});

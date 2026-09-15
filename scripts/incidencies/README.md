@@ -13,7 +13,7 @@ The project keeps a generic database connector, then builds an incident-points e
 - Discover spreadsheets through the shared database registry.
 - Provide a left navigation shell for current and future incident workflows.
 - Render student point totals for the selected academic term/date.
-- Restrict access through `Incidències -> config -> Users`.
+- Restrict access through script property `access_granted`, resolving roles through `Càrrega lectiva`.
 - Import/refresh `Incidències -> llistat_anual` from a tracking-report XLSX.
 - Document internal meeting/restorative records in `Incidències -> meeting_records`.
 - Specify a future read-only `Històric REC` page for saved meeting records.
@@ -74,6 +74,7 @@ const fullNameColumn = headers.full_name;
 | Property | Meaning |
 | --- | --- |
 | `db` | Spreadsheet ID of the database registry spreadsheet. |
+| `access_granted` | Comma-separated direct emails and/or role names allowed to use the control panel. |
 
 Import/API properties:
 
@@ -97,6 +98,7 @@ src/
   12_Format.js      Formatting and normalization helpers
   13_Response.js    Web response and locking helpers
   14_Timing.js      Lightweight timing instrumentation
+  15_Access.js      Role/email access-control helpers
   20_WebApp.js      Web endpoint functions
   30_Incidents.js   Incident scoring and term logic
   40_Import.js      XLSX/API import logic
@@ -136,6 +138,7 @@ This repository can be uploaded to GitHub as source documentation and a `clasp` 
 - [Project context](project-context.md)
 - [Database contract](docs/database-contract.md)
 - [Architecture and performance refactor spec](docs/architecture-performance-refactor.md)
+- [Role-based access control spec](docs/access-control.md)
 - [Incidents annual list spec](docs/incidents-annual-list.md)
 - [Incidents config spec](docs/incidents-config.md)
 - [Incident points endpoint spec](docs/incident-points-endpoint.md)

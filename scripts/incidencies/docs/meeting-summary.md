@@ -123,6 +123,6 @@ No hi ha decisions registrades per aquesta data.
 
 ## Access
 
-Use the same `config`.`Users` access control as the rest of the web app.
+Use the same `access_granted` role/email access control as the rest of the web app.
 
 Unauthorized users must not receive meeting-summary content.

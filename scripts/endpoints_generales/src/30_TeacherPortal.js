@@ -17,6 +17,10 @@ function buildInitialPayload_(endpoint) {
     return buildExpulsionFormPayload_(activeUser);
   }
 
+  if (cleanEndpoint === ENDPOINT_DIMARTS) {
+    return buildDimartsPayload_();
+  }
+
   return buildTeacherPortalPayload_(activeUser);
 }
 
@@ -31,6 +35,10 @@ function buildTeacherPortalPayload_(activeUser) {
       {
         endpoint: ENDPOINT_EXPULSIONS_FORM,
         label: 'Formulari d’expulsió'
+      },
+      {
+        endpoint: ENDPOINT_DIMARTS,
+        label: 'Sessions dimarts'
       }
     ]
   };

@@ -41,6 +41,8 @@ src/
   12_Response.js
   20_WebApp.js
   30_TeacherPortal.js
+  40_Expulsions.js
+  50_Dimarts.js
   Index.html
   UiStyles.html
   UiScripts.html
@@ -55,6 +57,10 @@ Current behavior:
 - The form reads class groups from `Dinantia`.`dinantia_2_dades_alumnes`.`dinantia_group_name`.
 - It reads students from `Dinantia`.`students_cache`, filtered by `group_name`.
 - It writes to `Incidències`.`expulsions` with blank `row_id`, filled `student_id`, and `teacher_email` set to the active user email.
+- `?endpoint=dimarts` renders a study-group session page.
+- The page resolves any selected date to `config`.`Dia_Grup_Estudi` in the same week.
+- It reads `study_group_teachers` and `study_group_students` for the resolved date.
+- It lets teachers update `study_group_students`.`comment` and stores the active user in `teacher_email`.
 
 Future actions should add:
 

@@ -118,18 +118,16 @@ Rules:
 - Preserve the configured group text for display.
 - Blank rows in `Grups` should be ignored.
 
-### `Users`
+### `Users` Legacy Column
 
-Authorized endpoint user email.
+Legacy authorized endpoint user email.
 
 Rules:
 
-- This column contains the email addresses allowed to use the endpoint.
-- Deployment may allow anyone in `@iernestlluch.cat` to access the web app, but the app must still check this list before showing data.
-- Compare emails after trimming whitespace and lowercasing.
-- Blank rows in `Users` should be ignored.
-- If the active user's email is not listed, the endpoint must not load or display incident data.
-- The owner/executing account is expected to be `admindomini@iernestlluch.cat`; this does not replace the active-user authorization check.
+- This column may remain in the sheet for historical compatibility.
+- The control panel no longer uses this column to authorize users.
+- Current access control uses script property `access_granted`, with direct email entries and role/càrrec entries resolved through `Càrrega lectiva`.
+- New features must not depend on `Users` for authorization.
 
 ### `Mesures_restauratives`
 
@@ -259,7 +257,7 @@ Recommended read behavior:
 
 - Read term dates from the first non-empty config row containing term/date values.
 - Read valid groups from all non-empty cells in the `Grups` column.
-- Read authorized users from all non-empty cells in the `Users` column.
+- Ignore `Users` for access control; authorization is handled by script property `access_granted`.
 - Read restorative measure values from all non-empty cells in the `Mesures_restauratives` column.
 - Read the study-group weekday from the first non-empty cell in the `Dia_Grup_Estudi` column when study-group scheduling is needed.
 - Read `Equip 3R` teacher availability from paired `3r day` and `3r teacher` cells.
@@ -267,7 +265,7 @@ Recommended read behavior:
 - Read expulsion document creator options from all non-empty cells in `expulsions_document_creators`.
 - Surface an error if required term dates are missing.
 - Surface an error if no groups are configured.
-- Surface an error if no authorized users are configured.
+- Surface an error if script property `access_granted` is missing or empty when the web app is accessed.
 - Features that create meeting records should surface an error if no restorative measures are configured.
 - Features that create study-group records should surface an error if `Dia_Grup_Estudi` is missing or invalid.
 - Features that create `Equip 3R` records should surface an error if required `3r day` / `3r teacher` configuration is missing or invalid.
@@ -303,7 +301,7 @@ To resolve a student's group:
 4. Read valid groups.
 5. Parse dates defensively as `dd/mm/yy` if not already `Date` objects.
 6. Validate chronological order: first term < second term < third term <= end of year.
-7. Read authorized users from `Users`.
+7. Ignore legacy `Users` for authorization.
 8. Use valid groups to resolve student groups from `llistat_anual`.`Grups`.
 9. Read restorative measure options from `Mesures_restauratives` when creating or validating meeting records.
 10. Read `Dia_Grup_Estudi` when creating study-group date proposals.

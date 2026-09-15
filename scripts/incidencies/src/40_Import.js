@@ -68,24 +68,7 @@ function handleImportRequest_(callback) {
 }
 
 function assertImportAuthorized_() {
-  const activeUser = getActiveUserEmail_();
-  const users = loadAuthorizedImportUsers_();
-
-  if (!isAuthorizedUser_(activeUser, users)) {
-    throw new Error(ACCESS_DENIED_MESSAGE);
-  }
-}
-
-function loadAuthorizedImportUsers_() {
-  const sheet = openTableSheet_(INCIDENTS_TABLE_NAME, INCIDENTS_CONFIG_SHEET_NAME);
-  const headers = requireHeaders_(sheet, ['Users'], INCIDENTS_TABLE_NAME + '.' + INCIDENTS_CONFIG_SHEET_NAME);
-  const users = readColumnValues_(getDataRows_(sheet), headers.Users).map(normalizeEmail_);
-
-  if (!users.length) {
-    throw new Error('Config sheet must contain at least one authorized user in "Users".');
-  }
-
-  return users;
+  assertUserAccess_();
 }
 
 function downloadTrackingReportFromApi_() {

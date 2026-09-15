@@ -69,8 +69,60 @@ function formatDateOnly_(date) {
   return Utilities.formatDate(date, Session.getScriptTimeZone(), 'dd/MM/yyyy');
 }
 
+function parseDateMaybe_(value) {
+  try {
+    return parseDateOnly_(value, 'date');
+  } catch (error) {
+    return null;
+  }
+}
+
 function addDays_(date, days) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+}
+
+function validateWeekday_(weekday, context) {
+  const cleanWeekday = String(weekday || '').trim().toLowerCase();
+  const allowed = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+
+  if (allowed.indexOf(cleanWeekday) === -1) {
+    throw new Error('Invalid weekday for ' + context + ': ' + weekday + '.');
+  }
+
+  return cleanWeekday;
+}
+
+function weekdayIndex_(weekday) {
+  return {
+    sunday: 0,
+    monday: 1,
+    tuesday: 2,
+    wednesday: 3,
+    thursday: 4,
+    friday: 5,
+    saturday: 6
+  }[weekday];
+}
+
+function nextOrSameWeekday_(date, weekday) {
+  const target = weekdayIndex_(weekday);
+  const base = startOfDay_(date);
+  const offset = (target - base.getDay() + 7) % 7;
+
+  return addDays_(base, offset);
+}
+
+function startOfWeekMonday_(date) {
+  const base = startOfDay_(date);
+  const day = base.getDay() || 7;
+
+  return addDays_(base, 1 - day);
+}
+
+function sameWeekWeekday_(date, weekday) {
+  const monday = startOfWeekMonday_(date);
+
+  return addDays_(monday, weekdayIndex_(weekday) - 1);
 }
 
 function isWeekend_(date) {

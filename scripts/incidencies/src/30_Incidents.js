@@ -4,7 +4,6 @@ const CONFIG_HEADERS = Object.freeze([
   '3r trimestre',
   'Fi curs',
   'Grups',
-  'Users',
   'Mesures_restauratives',
   'Dia_Grup_Estudi',
   '3r day',
@@ -88,19 +87,7 @@ function buildIncidentPointsPayload_(selectedDateText) {
     : todayDateOnly_();
   const config = loadIncidentConfig_();
   timer.mark('config loaded');
-  const activeUser = getActiveUserEmail_();
-
-  if (!isAuthorizedUser_(activeUser, config.users)) {
-    return {
-      ok: true,
-      status: 'unauthorized',
-      message: ACCESS_DENIED_MESSAGE,
-      selectedDate: formatDateOnly_(selectedDate),
-      activeUser: activeUser,
-      rows: [],
-      issues: []
-    };
-  }
+  const activeUser = assertAuthorized_(config);
 
   const term = detectTerm_(selectedDate, config);
 
@@ -180,7 +167,6 @@ function loadIncidentConfigFresh_() {
     thirdTerm: parseDateOnly_(dateRow[headers['3r trimestre']], '3r trimestre'),
     endOfYear: parseDateOnly_(dateRow[headers['Fi curs']], 'Fi curs'),
     groups: readColumnValues_(values, headers.Grups),
-    users: readColumnValues_(values, headers.Users).map(normalizeEmail_),
     restorativeMeasures: readColumnValues_(values, headers.Mesures_restauratives),
     studyGroupDay: firstColumnValue_(values, headers.Dia_Grup_Estudi).toLowerCase(),
     thirdProjectTeachers: readThirdProjectTeachers_(values, headers),
@@ -224,9 +210,6 @@ function validateConfig_(config) {
     throw new Error('Config sheet must contain at least one group in "Grups".');
   }
 
-  if (!config.users.length) {
-    throw new Error('Config sheet must contain at least one authorized user in "Users".');
-  }
 }
 
 function firstColumnValue_(values, columnIndex) {
@@ -251,13 +234,7 @@ function readThirdProjectTeachers_(values, headers) {
 }
 
 function assertAuthorized_(config) {
-  const activeUser = getActiveUserEmail_();
-
-  if (!isAuthorizedUser_(activeUser, config.users)) {
-    throw new Error(ACCESS_DENIED_MESSAGE);
-  }
-
-  return activeUser;
+  return assertUserAccess_().email;
 }
 
 function loadMeetingRecordPrefills_(selectedDate) {
@@ -350,17 +327,7 @@ function saveSingleMeetingRecord_(record, selectedDateText) {
 function saveMeetingRecords_(records, selectedDateText) {
   const timer = createTimer_('saveMeetingRecords');
   const config = loadIncidentConfig_();
-  const activeUser = getActiveUserEmail_();
-
-  if (!isAuthorizedUser_(activeUser, config.users)) {
-    return {
-      ok: true,
-      status: 'unauthorized',
-      message: ACCESS_DENIED_MESSAGE,
-      savedCount: 0,
-      rowResults: []
-    };
-  }
+  assertAuthorized_(config);
 
   const selectedDate = parseDateOnly_(selectedDateText, 'selected date');
   const cleanRecords = Array.isArray(records) ? records : [];
@@ -1498,23 +1465,8 @@ function buildStudentIncidentDetailPayload_(studentId, selectedDateText) {
     ? parseDateOnly_(selectedDateText, 'selected date')
     : todayDateOnly_();
   const config = loadIncidentConfig_();
-  const activeUser = getActiveUserEmail_();
+  const activeUser = assertAuthorized_(config);
   const cleanStudentId = String(studentId || '').trim();
-
-  if (!isAuthorizedUser_(activeUser, config.users)) {
-    return {
-      ok: true,
-      status: 'unauthorized',
-      message: ACCESS_DENIED_MESSAGE,
-      selectedDate: formatDateOnly_(selectedDate),
-      activeUser: activeUser,
-      incidents: [],
-      filters: {
-        activities: [],
-        teachers: []
-      }
-    };
-  }
 
   if (!cleanStudentId) {
     throw new Error('Student Id is required.');
