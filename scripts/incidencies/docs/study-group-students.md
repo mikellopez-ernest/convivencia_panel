@@ -29,6 +29,8 @@ Required headers, in current order:
 | E | `student` |
 | F | `comment` |
 | G | `teacher_email` |
+| H | `active` |
+| I | `inactive_comment` |
 
 Code should validate headers by name, not only by column position.
 
@@ -120,6 +122,32 @@ Rules:
 - Overwrite on every comment save.
 - Preserve line breaks and punctuation.
 
+### `active`
+
+Activity flag for the study-group assignment.
+
+Rules:
+
+- Used to mark whether the assignment is active.
+- Blank values are treated as active.
+- Real boolean `false` and string `FALSE` are treated as inactive.
+- The `Sessions dimarts` page hides inactive rows.
+- New rows created by the `Dimarts tarda` workflow may leave this blank.
+- Code should tolerate blank values.
+- The remove-measure action stores real boolean `FALSE`.
+
+### `inactive_comment`
+
+Free text explaining why a study-group assignment is inactive.
+
+Rules:
+
+- Optional.
+- May be blank.
+- Only meaningful when `active` marks the assignment as inactive.
+- The remove-measure action writes the required reason here for the current and future rows for the same student.
+- Preserve line breaks and punctuation.
+
 ## Relationship With Other Sheets
 
 | Sheet | Relationship |
@@ -165,6 +193,9 @@ Save behavior:
 - On `Desa`, append one row to `study_group_students` for each selected date.
 - `student` is the student name from the main table row.
 - `comment` is blank.
+- `teacher_email` is blank.
+- `active` is blank unless a future workflow defines a default.
+- `inactive_comment` is blank.
 - `date` is the selected date from each popup date picker.
 - `id` is generated or left to the sheet if the sheet has autonumeric behavior.
 

@@ -8,6 +8,7 @@
         studentDetailModal: null,
         meetingSummaryModal: null,
         studyGroupModal: null,
+        studyGroupRemoveModal: null,
         thirdProjectModal: null,
         expulsionModal: null,
         studentDetailIncidents: [],
@@ -18,12 +19,14 @@
         historicRecords: [],
         tuesdayComments: {},
         thirdProjectOutcomes: {},
+        rowTooltips: [],
         thirdMonth: new Date().getMonth(),
         thirdYear: new Date().getFullYear(),
         expulsionRecords: [],
         expulsionSearchTimer: null,
         pageLoaded: {},
         activeSpecialRow: null,
+        activeStudyGroupRemovalRow: null,
         thirdProjectSelectedDates: [],
         saveQueue: [],
         isSaving: false,
@@ -95,6 +98,7 @@
         state.studentDetailModal = new bootstrap.Modal(document.getElementById('studentDetailModal'));
         state.meetingSummaryModal = new bootstrap.Modal(document.getElementById('meetingSummaryModal'));
         state.studyGroupModal = new bootstrap.Modal(document.getElementById('studyGroupModal'));
+        state.studyGroupRemoveModal = new bootstrap.Modal(document.getElementById('studyGroupRemoveModal'));
         state.thirdProjectModal = new bootstrap.Modal(document.getElementById('thirdProjectModal'));
         state.expulsionModal = new bootstrap.Modal(document.getElementById('expulsionModal'));
         state.picker = flatpickr('#selectedDate', {
@@ -149,6 +153,7 @@
         document.getElementById('thirdMonthSelect').addEventListener('change', handleThirdMonthSelect);
         document.getElementById('studyGroupCount').addEventListener('input', renderStudyGroupDateInputs);
         document.getElementById('saveStudyGroupButton').addEventListener('click', saveStudyGroupFromModal);
+        document.getElementById('confirmStudyGroupRemoveButton').addEventListener('click', confirmStudyGroupRemoval);
         document.getElementById('saveThirdProjectButton').addEventListener('click', saveThirdProjectFromModal);
         document.getElementById('saveExpulsionButton').addEventListener('click', saveExpulsionFromModal);
         ['studyGroupModal', 'thirdProjectModal', 'expulsionModal'].forEach((id) => {
@@ -305,6 +310,8 @@
         rows.forEach((row) => {
           const tr = document.createElement('tr');
           const input = document.createElement('input');
+          const actionCell = document.createElement('td');
+          const removeButton = document.createElement('button');
 
           input.className = 'form-control form-control-sm comment-input';
           input.value = row.comment || '';
@@ -314,6 +321,15 @@
             syncSaveButtonState();
           });
 
+          actionCell.className = 'study-remove-column';
+          removeButton.type = 'button';
+          removeButton.className = 'study-remove-button';
+          removeButton.innerHTML = '<i class="bi bi-x-lg" aria-hidden="true"></i>';
+          removeButton.title = 'Eliminar mesura';
+          removeButton.setAttribute('aria-label', `Eliminar mesura de ${row.student || 'alumne'}`);
+          removeButton.addEventListener('click', () => openStudyGroupRemovalModal(row));
+          actionCell.appendChild(removeButton);
+          tr.appendChild(actionCell);
           appendTextCell(tr, row.id);
           appendTextCell(tr, row.date);
           appendTextCell(tr, row.student);
@@ -324,6 +340,51 @@
         });
 
         syncSaveButtonState();
+      }
+
+      function openStudyGroupRemovalModal(row) {
+        state.activeStudyGroupRemovalRow = row;
+        document.getElementById('studyGroupRemoveAlert').className = 'alert d-none';
+        document.getElementById('studyGroupRemoveReason').value = '';
+        state.studyGroupRemoveModal.show();
+      }
+
+      function confirmStudyGroupRemoval() {
+        const row = state.activeStudyGroupRemovalRow;
+        const reason = document.getElementById('studyGroupRemoveReason').value.trim();
+
+        if (!row || !row.id) {
+          showModalAlert('studyGroupRemoveAlert', 'No s’ha identificat el registre.', 'danger');
+          return;
+        }
+
+        if (!reason) {
+          showModalAlert('studyGroupRemoveAlert', 'El motiu és obligatori.', 'warning');
+          return;
+        }
+
+        setLoading(true);
+        document.getElementById('confirmStudyGroupRemoveButton').disabled = true;
+        google.script.run
+          .withSuccessHandler((payload) => {
+            setLoading(false);
+            document.getElementById('confirmStudyGroupRemoveButton').disabled = false;
+
+            if (!payload || !payload.ok) {
+              showModalAlert('studyGroupRemoveAlert', payload && payload.message ? payload.message : 'No s’ha pogut eliminar la mesura.', 'danger');
+              return;
+            }
+
+            state.studyGroupRemoveModal.hide();
+            showAlert(payload.message || 'Mesura eliminada.', 'success');
+            loadTuesdaySessions(document.getElementById('tuesdayDate').value);
+          })
+          .withFailureHandler((error) => {
+            setLoading(false);
+            document.getElementById('confirmStudyGroupRemoveButton').disabled = false;
+            showModalAlert('studyGroupRemoveAlert', error.message || String(error), 'danger');
+          })
+          .deactivateStudyGroupStudentMeasure(row.id, reason);
       }
 
       function loadThirdProjectMonth() {
@@ -572,6 +633,7 @@
       function renderRows(rows) {
         const tbody = document.getElementById('rows');
         const tableSection = document.getElementById('tableSection');
+        disposeRowTooltips();
         tbody.innerHTML = '';
 
         if (!rows.length) {
@@ -587,6 +649,9 @@
           const studentCell = document.createElement('td');
           const groupCell = document.createElement('td');
           const pointsCell = document.createElement('td');
+          const expulsionCell = document.createElement('td');
+          const studyGroupCell = document.createElement('td');
+          const thirdProjectCell = document.createElement('td');
           const commentCell = document.createElement('td');
           const measureCell = document.createElement('td');
           const studentButton = document.createElement('button');
@@ -623,6 +688,9 @@
           groupCell.textContent = row.grup || 'Sense grup';
           pointsCell.className = 'text-end points-cell';
           pointsCell.textContent = formatPoints(row.punts);
+          renderHistoryCell(expulsionCell, row.history && row.history.expulsions, 'Ha estat expulsat');
+          renderHistoryCell(studyGroupCell, row.history && row.history.studyGroup, 'Ha vingut algun dimarts');
+          renderHistoryCell(thirdProjectCell, row.history && row.history.thirdProject, 'Ha fet projecte 3R');
           commentCell.appendChild(commentInput);
           measureCell.appendChild(measureSelect);
 
@@ -630,13 +698,54 @@
           tr.appendChild(studentCell);
           tr.appendChild(groupCell);
           tr.appendChild(pointsCell);
+          tr.appendChild(expulsionCell);
+          tr.appendChild(studyGroupCell);
+          tr.appendChild(thirdProjectCell);
           tr.appendChild(commentCell);
           tr.appendChild(measureCell);
           tbody.appendChild(tr);
           state.rowControls[row.id] = { tr, statusCell, commentInput, measureSelect, row };
         });
 
+        initializeRowTooltips(tbody);
         syncSaveButtonState();
+      }
+
+      function renderHistoryCell(cell, dates, label) {
+        const cleanDates = Array.isArray(dates) ? dates.filter(Boolean) : [];
+        const icon = document.createElement('span');
+
+        cell.className = 'history-cell';
+
+        if (cleanDates.length) {
+          icon.className = 'history-indicator history-yes';
+          icon.innerHTML = '<i class="bi bi-check-lg" aria-hidden="true"></i>';
+          icon.setAttribute('role', 'img');
+          icon.setAttribute('aria-label', label);
+          icon.setAttribute('data-bs-toggle', 'tooltip');
+          icon.setAttribute('data-bs-html', 'true');
+          icon.setAttribute('data-bs-title', cleanDates.map(escapeHtml).join('<br>'));
+        } else {
+          icon.className = 'history-indicator history-no';
+          icon.innerHTML = '<i class="bi bi-x-lg" aria-hidden="true"></i>';
+          icon.setAttribute('role', 'img');
+          icon.setAttribute('aria-label', label + ': sense dades');
+        }
+
+        cell.appendChild(icon);
+      }
+
+      function initializeRowTooltips(container) {
+        state.rowTooltips = Array.from(container.querySelectorAll('[data-bs-toggle="tooltip"]'))
+          .map((element) => new bootstrap.Tooltip(element, {
+            html: true,
+            trigger: 'hover focus'
+          }));
+      }
+
+      function disposeRowTooltips() {
+        state.rowTooltips.forEach((tooltip) => tooltip.dispose());
+        state.rowTooltips = [];
       }
 
       function updateMeetingEditState(row, tr, statusCell, commentInput, measureSelect) {
@@ -1590,6 +1699,15 @@
         const month = String(date.getMonth() + 1).padStart(2, '0');
 
         return `${day}/${month}/${date.getFullYear()}`;
+      }
+
+      function escapeHtml(value) {
+        return String(value || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
       }
 
       function addClientDays(date, days) {

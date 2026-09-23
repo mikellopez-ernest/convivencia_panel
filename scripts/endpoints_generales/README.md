@@ -33,6 +33,7 @@ Initial infrastructure includes:
 - Shared database registry connector using script property `db`.
 - Routed endpoint `?endpoint=expulsions_form` for direct teacher-created expulsions.
 - Routed endpoint `?endpoint=dimarts` for study-group session comments.
+- Routed endpoint `?endpoint=projecte3r` for `Equip 3R` outcome tracking.
 
 ## Required Script Property
 
@@ -47,11 +48,13 @@ Initial infrastructure includes:
 | default / `teacher_portal` | General landing page. |
 | `expulsions_form` | Teacher-facing expulsion form. |
 | `dimarts` | Teacher-facing study-group session comments. |
+| `projecte3r` | Teacher-facing `Equip 3R` calendar and outcome tracking. |
 
 Specs:
 
 - [Expulsions form endpoint](docs/expulsions-form.md)
 - [Dimarts endpoint](docs/dimarts.md)
+- [Projecte 3R endpoint](docs/projecte3r.md)
 
 ## Local Commands
 

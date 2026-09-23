@@ -65,6 +65,27 @@
         font-variant-numeric: tabular-nums;
       }
 
+      .history-cell {
+        text-align: center;
+        width: 2.25rem;
+      }
+
+      .history-indicator {
+        display: inline-flex;
+        font-size: 1rem;
+        justify-content: center;
+        line-height: 1;
+        width: 1.25rem;
+      }
+
+      .history-yes {
+        color: #198754;
+      }
+
+      .history-no {
+        color: #dc3545;
+      }
+
       .status-cell {
         text-align: center;
         width: 2.75rem;
@@ -113,6 +134,26 @@
 
       .measure-select {
         min-width: 190px;
+      }
+
+      .study-remove-column {
+        text-align: center;
+        width: 2.5rem;
+      }
+
+      .study-remove-button {
+        background: transparent;
+        border: 0;
+        color: #dc3545;
+        opacity: 0;
+        padding: 0.25rem;
+        transition: opacity 120ms ease-in-out;
+      }
+
+      #tuesdayRows tr:hover .study-remove-button,
+      #tuesdayRows tr:focus-within .study-remove-button,
+      .study-remove-button:focus {
+        opacity: 1;
       }
 
       .action-fab {

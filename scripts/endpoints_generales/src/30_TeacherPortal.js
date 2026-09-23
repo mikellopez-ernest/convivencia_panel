@@ -21,6 +21,10 @@ function buildInitialPayload_(endpoint) {
     return buildDimartsPayload_();
   }
 
+  if (cleanEndpoint === ENDPOINT_PROJECTE_3R) {
+    return buildProjecte3rPayload_();
+  }
+
   return buildTeacherPortalPayload_(activeUser);
 }
 
@@ -39,6 +43,10 @@ function buildTeacherPortalPayload_(activeUser) {
       {
         endpoint: ENDPOINT_DIMARTS,
         label: 'Sessions dimarts'
+      },
+      {
+        endpoint: ENDPOINT_PROJECTE_3R,
+        label: 'Projecte 3R'
       }
     ]
   };

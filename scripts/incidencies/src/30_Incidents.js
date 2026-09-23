@@ -45,7 +45,9 @@ const STUDY_GROUP_STUDENT_HEADERS = Object.freeze([
   'date',
   'student',
   'comment',
-  'teacher_email'
+  'teacher_email',
+  'active',
+  'inactive_comment'
 ]);
 
 const STUDY_GROUP_TEACHER_HEADERS = Object.freeze([
@@ -107,11 +109,16 @@ function buildIncidentPointsPayload_(selectedDateText) {
   timer.mark('incidents aggregated');
   const meetingPrefills = loadMeetingRecordPrefills_(selectedDate);
   timer.mark('meeting prefills loaded');
+  const studentHistory = loadHomeStudentHistory_(result.rows.map(function(row) {
+    return row.id;
+  }));
+  timer.mark('student history loaded');
   const rows = result.rows.map(function(row) {
     const prefill = meetingPrefills[row.id] || null;
 
     return Object.assign({}, row, {
-      savedRecord: prefill
+      savedRecord: prefill,
+      history: studentHistory[row.id] || createEmptyStudentHistory_()
     });
   });
 
@@ -262,6 +269,94 @@ function loadMeetingRecordPrefills_(selectedDate) {
   });
 
   return prefills;
+}
+
+function createEmptyStudentHistory_() {
+  return {
+    expulsions: [],
+    studyGroup: [],
+    thirdProject: []
+  };
+}
+
+function loadHomeStudentHistory_(studentIds) {
+  const byStudent = {};
+
+  (studentIds || []).forEach(function(studentId) {
+    const id = String(studentId || '').trim();
+
+    if (id) {
+      byStudent[id] = createEmptyStudentHistory_();
+    }
+  });
+
+  const ids = Object.keys(byStudent);
+
+  if (!ids.length) {
+    return byStudent;
+  }
+
+  appendStudentHistoryDates_(
+    byStudent,
+    INCIDENTS_EXPULSIONS_SHEET_NAME,
+    EXPULSION_HEADERS,
+    'student_id',
+    'date',
+    'expulsions'
+  );
+  appendStudentHistoryDates_(
+    byStudent,
+    INCIDENTS_STUDY_GROUP_STUDENTS_SHEET_NAME,
+    STUDY_GROUP_STUDENT_HEADERS,
+    'student_id',
+    'date',
+    'studyGroup'
+  );
+  appendStudentHistoryDates_(
+    byStudent,
+    INCIDENTS_3R_PROJECT_SHEET_NAME,
+    THIRD_PROJECT_HEADERS,
+    'student_id',
+    'date',
+    'thirdProject'
+  );
+
+  ids.forEach(function(id) {
+    Object.keys(byStudent[id]).forEach(function(kind) {
+      byStudent[id][kind].sort(function(a, b) {
+        const aDate = parseDateMaybe_(a);
+        const bDate = parseDateMaybe_(b);
+        const aTime = aDate ? aDate.getTime() : 0;
+        const bTime = bDate ? bDate.getTime() : 0;
+
+        return bTime - aTime;
+      });
+    });
+  });
+
+  return byStudent;
+}
+
+function appendStudentHistoryDates_(byStudent, sheetName, requiredHeaders, studentIdHeader, dateHeader, targetKey) {
+  const sheet = openTableSheet_(INCIDENTS_TABLE_NAME, sheetName);
+  const headers = requireHeaders_(sheet, requiredHeaders, INCIDENTS_TABLE_NAME + '.' + sheetName);
+  const rows = getDataRowsForHeaders_(sheet, headers, [studentIdHeader, dateHeader]);
+
+  rows.forEach(function(row) {
+    const studentId = String(row[headers[studentIdHeader]] || '').trim();
+
+    if (!studentId || !byStudent[studentId]) {
+      return;
+    }
+
+    const date = parseDateMaybe_(row[headers[dateHeader]]);
+
+    if (!date) {
+      return;
+    }
+
+    byStudent[studentId][targetKey].push(formatDateOnly_(date));
+  });
 }
 
 function deleteLatestMeetingRecord_(studentId, selectedDateText) {
@@ -531,6 +626,10 @@ function loadStudyGroupStudentsForDate_(selectedDate) {
       return null;
     }
 
+    if (!isActiveStudyGroupRow_(row[headers.active])) {
+      return null;
+    }
+
     return {
       rowNumber: index + 2,
       id: String(row[headers.id] || '').trim(),
@@ -539,9 +638,21 @@ function loadStudyGroupStudentsForDate_(selectedDate) {
       date: formatDateOnly_(date),
       student: String(row[headers.student] || '').trim(),
       comment: String(row[headers.comment] || '').trim(),
-      teacherEmail: String(row[headers.teacher_email] || '').trim()
+      teacherEmail: String(row[headers.teacher_email] || '').trim(),
+      active: row[headers.active],
+      inactiveComment: String(row[headers.inactive_comment] || '').trim()
     };
   }).filter(Boolean);
+}
+
+function isActiveStudyGroupRow_(value) {
+  if (value === false) {
+    return false;
+  }
+
+  const text = String(value === null || value === undefined ? '' : value).trim().toUpperCase();
+
+  return text !== 'FALSE';
 }
 
 function saveTuesdaySessionComments_(updates) {
@@ -580,6 +691,77 @@ function saveTuesdaySessionComments_(updates) {
   });
 
   return { ok: true, status: 'saved', message: STRINGS.tuesdaySessions.saved, savedCount: cleanUpdates.length };
+}
+
+function deactivateStudyGroupStudentMeasure_(id, reason) {
+  const config = loadIncidentConfig_();
+  assertAuthorized_(config);
+
+  const cleanId = String(id || '').trim();
+  const cleanReason = String(reason || '').trim();
+
+  if (!cleanId) {
+    throw new Error('Study-group row id is required.');
+  }
+
+  if (!cleanReason) {
+    throw new Error('El motiu és obligatori.');
+  }
+
+  const updatedCount = withScriptLock_('study_group_students deactivate', function() {
+    const sheet = openTableSheet_(INCIDENTS_TABLE_NAME, INCIDENTS_STUDY_GROUP_STUDENTS_SHEET_NAME);
+    const headers = requireHeaders_(sheet, STUDY_GROUP_STUDENT_HEADERS, INCIDENTS_TABLE_NAME + '.' + INCIDENTS_STUDY_GROUP_STUDENTS_SHEET_NAME);
+    const rows = getDataRows_(sheet);
+    let target = null;
+
+    rows.forEach(function(row, index) {
+      if (String(row[headers.id] || '').trim() === cleanId) {
+        target = {
+          row: row,
+          sheetRow: index + 2,
+          date: parseDateMaybe_(row[headers.date]),
+          studentId: String(row[headers.student_id] || '').trim(),
+          student: String(row[headers.student] || '').trim()
+        };
+      }
+    });
+
+    if (!target || !target.date) {
+      throw new Error('No s’ha trobat el registre d’estudi amb id ' + cleanId + '.');
+    }
+
+    const targetTime = startOfDay_(target.date).getTime();
+    const updates = [];
+
+    rows.forEach(function(row, index) {
+      const date = parseDateMaybe_(row[headers.date]);
+      const studentId = String(row[headers.student_id] || '').trim();
+      const student = String(row[headers.student] || '').trim();
+      const sameStudent = target.studentId
+        ? studentId === target.studentId
+        : student && student === target.student;
+
+      if (!sameStudent || !date || startOfDay_(date).getTime() < targetTime) {
+        return;
+      }
+
+      updates.push(index + 2);
+    });
+
+    updates.forEach(function(sheetRow) {
+      sheet.getRange(sheetRow, headers.active + 1).setValue(false);
+      sheet.getRange(sheetRow, headers.inactive_comment + 1).setValue(cleanReason);
+    });
+
+    return updates.length;
+  });
+
+  return {
+    ok: true,
+    status: 'deactivated',
+    message: 'Mesura eliminada.',
+    updatedCount: updatedCount
+  };
 }
 
 function buildStudyGroupDefaultsPayload_(selectedDateText) {

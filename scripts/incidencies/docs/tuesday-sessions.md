@@ -146,6 +146,9 @@ Columns:
 | `date` | `study_group_students`.`date` | Read-only |
 | `student` | `study_group_students`.`student` | Read-only |
 | `comment` | `study_group_students`.`comment` | Editable text box |
+| `teacher_email` | `study_group_students`.`teacher_email` | Stored when saving, not necessarily displayed |
+| `active` | `study_group_students`.`active` | Used to hide inactive/future assignments |
+| `inactive_comment` | `study_group_students`.`inactive_comment` | Reason for removing the current/future restorative measure |
 
 Rules:
 
@@ -154,7 +157,37 @@ Rules:
 - Other columns are read-only.
 - Preserve existing comments when loading.
 - Editing a comment should mark the row as unsaved.
+- Rows where `active` is real boolean `false` or string `FALSE` are not shown as active session rows.
+- Blank `active` values are treated as active.
+- A red X action appears only when the mouse pointer is over the row, or when the row/action receives focus.
 - The table should be responsive with Bootstrap behavior on narrow screens.
+
+## Remove Restorative Measure Behavior
+
+Each visible student row has a red X action.
+
+When clicked:
+
+1. Open a popup.
+2. Show this information text:
+
+```text
+Si continues elimines la possibilitat que aquest/a alumne/a continui amb la seva mesura restaurativa per aquesta sessió i les següents
+```
+
+3. Show a text box labelled `Motiu`.
+4. Show a button labelled `Eliminar mesura`.
+
+When `Eliminar mesura` is clicked:
+
+- `Motiu` is required.
+- Find the clicked `study_group_students` row by `id`.
+- Identify the student by `student_id`; if `student_id` is blank, fall back to exact `student` text.
+- Identify the clicked row date.
+- For every `study_group_students` row with the same student and a `date` greater than or equal to the clicked row date:
+  - set `active` to real boolean `FALSE`;
+  - set `inactive_comment` to the text written in `Motiu`.
+- Reload the page data after successful save.
 
 ## Save Behavior
 
@@ -166,6 +199,7 @@ Rules:
 - Use `study_group_students`.`id` to identify the row to update.
 - Update the existing row; do not append a new row when saving comments.
 - Do not modify `date` or `student`.
+- Do not modify `active` or `inactive_comment`.
 - If there are no changed comments, show an informational message and do nothing.
 - After successful save, clear the unsaved state.
 - If save fails, keep the changed rows marked as unsaved and show a clear error message.

@@ -2,8 +2,26 @@
       const state = {
         endpoint: window.APP_ENDPOINT || 'teacher_portal',
         students: [],
-        dimartsRows: []
+        dimartsRows: [],
+        projecte3rMonth: new Date().getMonth(),
+        projecte3rYear: new Date().getFullYear(),
+        projecte3rOutcomes: {}
       };
+
+      const CATALAN_MONTHS = [
+        'Gener',
+        'Febrer',
+        'Març',
+        'Abril',
+        'Maig',
+        'Juny',
+        'Juliol',
+        'Agost',
+        'Setembre',
+        'Octubre',
+        'Novembre',
+        'Desembre'
+      ];
 
       const Api = {
         call(name, args = [], options = {}) {
@@ -47,6 +65,11 @@
         document.getElementById('previousWeekButton').addEventListener('click', () => shiftDimartsWeek(-1));
         document.getElementById('nextWeekButton').addEventListener('click', () => shiftDimartsWeek(1));
         document.getElementById('saveDimartsButton').addEventListener('click', saveDimartsComments);
+        document.getElementById('projecte3rPrevMonth').addEventListener('click', () => shiftProjecte3rMonth(-1));
+        document.getElementById('projecte3rNextMonth').addEventListener('click', () => shiftProjecte3rMonth(1));
+        document.getElementById('projecte3rMonthSelect').addEventListener('change', handleProjecte3rMonthSelect);
+        document.getElementById('saveProjecte3rButton').addEventListener('click', saveProjecte3rOutcomes);
+        populateProjecte3rMonthSelect();
 
         Api.call('getInitialPayload', [state.endpoint])
           .then(renderPayload)
@@ -73,6 +96,11 @@
 
         if (payload.endpoint === 'dimarts') {
           renderDimarts(payload);
+          return;
+        }
+
+        if (payload.endpoint === 'projecte3r') {
+          renderProjecte3r(payload);
           return;
         }
 
@@ -251,6 +279,145 @@
             showAlert(payload.message || 'Comentaris desats.', 'success');
             document.getElementById('dimartsStatus').textContent = payload.savedCount + ' registre(s) desat(s).';
             document.querySelectorAll('#dimartsStudentsBody tr').forEach((row) => row.classList.remove('table-warning'));
+          })
+          .catch(renderError);
+      }
+
+      function populateProjecte3rMonthSelect() {
+        const select = document.getElementById('projecte3rMonthSelect');
+        select.innerHTML = '';
+
+        CATALAN_MONTHS.forEach((month, index) => {
+          const option = document.createElement('option');
+          option.value = String(index);
+          option.textContent = month;
+          select.appendChild(option);
+        });
+
+        select.value = String(state.projecte3rMonth);
+      }
+
+      function handleProjecte3rMonthSelect(event) {
+        state.projecte3rMonth = Number(event.target.value);
+        loadProjecte3rMonth();
+      }
+
+      function shiftProjecte3rMonth(delta) {
+        const next = new Date(state.projecte3rYear, state.projecte3rMonth + delta, 1);
+        state.projecte3rYear = next.getFullYear();
+        state.projecte3rMonth = next.getMonth();
+        document.getElementById('projecte3rMonthSelect').value = String(state.projecte3rMonth);
+        loadProjecte3rMonth();
+      }
+
+      function loadProjecte3rMonth() {
+        Api.call('getProjecte3rPayload', [formatDate(new Date(state.projecte3rYear, state.projecte3rMonth, 1))])
+          .then((payload) => {
+            if (!payload || !payload.ok) {
+              renderError(payload && payload.message ? payload.message : 'No s’ha pogut carregar el calendari 3R.');
+              return;
+            }
+
+            renderProjecte3r(payload);
+          })
+          .catch(renderError);
+      }
+
+      function renderProjecte3r(payload) {
+        document.getElementById('projecte3rPage').classList.remove('d-none');
+        document.getElementById('projecte3rActiveUser').textContent = payload.activeUser || '';
+
+        if (Number.isInteger(payload.month)) {
+          state.projecte3rMonth = payload.month;
+          document.getElementById('projecte3rMonthSelect').value = String(payload.month);
+        }
+
+        if (Number.isInteger(payload.year)) {
+          state.projecte3rYear = payload.year;
+        }
+
+        state.projecte3rOutcomes = {};
+        document.getElementById('projecte3rMonthLabel').textContent = `${CATALAN_MONTHS[state.projecte3rMonth]} ${state.projecte3rYear}`;
+
+        const body = document.getElementById('projecte3rRows');
+        const empty = document.getElementById('projecte3rEmpty');
+        const options = payload.outcomeOptions || [];
+        let assignmentCount = 0;
+        body.innerHTML = '';
+
+        (payload.weeks || []).forEach((week) => {
+          const row = document.createElement('tr');
+
+          week.forEach((cell) => {
+            const td = document.createElement('td');
+            td.className = 'projecte3r-cell';
+            td.classList.toggle('projecte3r-cell-muted', !cell.inMonth);
+
+            const date = document.createElement('div');
+            date.className = 'fw-semibold';
+            date.textContent = cell.inMonth ? cell.date : '';
+            td.appendChild(date);
+
+            if (cell.inMonth) {
+              const teacher = document.createElement('div');
+              teacher.className = 'small text-secondary mb-2';
+              teacher.textContent = cell.teacher || 'Sense professor';
+              td.appendChild(teacher);
+
+              (cell.assignments || []).forEach((assignment) => {
+                assignmentCount += 1;
+                const block = document.createElement('div');
+                const name = document.createElement('div');
+                const select = document.createElement('select');
+
+                block.className = 'projecte3r-assignment';
+                name.className = 'small mb-1';
+                name.textContent = assignment.student || '(sense alumne)';
+                select.className = 'form-select form-select-sm';
+                populateSelect(select, options, '');
+                select.value = assignment.aprofitament || '';
+                select.addEventListener('change', () => {
+                  state.projecte3rOutcomes[assignment.id] = {
+                    id: assignment.id,
+                    aprofitament: select.value
+                  };
+                  block.classList.add('projecte3r-assignment-edited');
+                });
+
+                block.appendChild(name);
+                block.appendChild(select);
+                td.appendChild(block);
+              });
+            }
+
+            row.appendChild(td);
+          });
+
+          body.appendChild(row);
+        });
+
+        empty.classList.toggle('d-none', assignmentCount > 0);
+        empty.textContent = 'No hi ha assignacions 3R en aquest mes.';
+        document.getElementById('projecte3rStatus').textContent = '';
+      }
+
+      function saveProjecte3rOutcomes() {
+        const updates = Object.keys(state.projecte3rOutcomes).map((id) => state.projecte3rOutcomes[id]);
+        const button = document.getElementById('saveProjecte3rButton');
+
+        Api.call('saveProjecte3rOutcomes', [updates], { button })
+          .then((payload) => {
+            if (!payload || !payload.ok) {
+              renderError(payload && payload.message ? payload.message : 'No s’ha pogut desar el projecte 3R.');
+              return;
+            }
+
+            showAlert(payload.message || 'Aprofitament desat.', 'success');
+            document.getElementById('projecte3rStatus').textContent = payload.savedCount + ' registre(s) desat(s).';
+            state.projecte3rOutcomes = {};
+            document.querySelectorAll('.projecte3r-assignment-edited').forEach((block) => {
+              block.classList.remove('projecte3r-assignment-edited');
+            });
           })
           .catch(renderError);
       }

@@ -64,7 +64,7 @@ Use:
 Required headers:
 
 ```text
-id, student_id, row_id, date, student, comment, teacher_email
+id, student_id, row_id, date, student, comment, teacher_email, active, inactive_comment
 ```
 
 Use:
@@ -72,6 +72,7 @@ Use:
 - Show all rows where `date` matches the resolved study-group date.
 - Render `student` as read-only text.
 - Render `comment` as an editable text area.
+- `active` and `inactive_comment` are part of the schema but are not edited by this endpoint yet.
 
 ## UI
 
@@ -101,6 +102,7 @@ When the teacher presses Save:
 2. Find each submitted row by `study_group_students.id`.
 3. Overwrite `comment`.
 4. Overwrite `teacher_email` with the active user email.
+5. Do not modify `active` or `inactive_comment`.
 
 The endpoint does not create new study-group rows. Rows are created by the control panel when a meeting decision uses `Dimarts tarda`.
 

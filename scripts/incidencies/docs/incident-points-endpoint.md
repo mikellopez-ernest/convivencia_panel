@@ -99,8 +99,25 @@ Table columns:
 | `Alumne` | `llistat_anual`.`Alumne` |
 | `Grup` | resolved from `llistat_anual`.`Grups` using `config`.`Grups` |
 | `Punts` | sum of `llistat_anual`.`Puntuació` for the selected period |
+| `E` | compact indicator for whether the student appears in `expulsions` |
+| `D` | compact indicator for whether the student appears in `study_group_students` |
+| `3` | compact indicator for whether the student appears in `3r_project` |
 | `Comentari` | User-editable text box, empty by default |
 | `Mesura` | User-selectable dropdown loaded from `config`.`Mesures_restauratives`, with an empty default option |
+
+History indicator rules:
+
+- The three columns are narrow.
+- Header `E` tooltip: `Ha estat expulsat`.
+- Header `D` tooltip: `Ha vingut algun dimarts`.
+- Header `3` tooltip: `Ha fet projecte 3R`.
+- For `E`, look up the student in `Incidències` -> `expulsions` by `student_id`.
+- For `D`, look up the student in `Incidències` -> `study_group_students` by `student_id`.
+- For `3`, look up the student in `Incidències` -> `3r_project` by `student_id`.
+- If the student has at least one matching row, show a green tick.
+- If the student has no matching row, show a red X.
+- Hovering/focusing a green tick shows a tooltip with the matching row dates, one date per line.
+- Red X cells do not need a date tooltip.
 
 Meeting-record prefill rules:
 
@@ -335,6 +352,9 @@ Rules:
 - On `Desa`, append one row to `study_group_students` for each selected date.
 - `study_group_students`.`student` is the current row's `Alumne`.
 - `study_group_students`.`comment` is blank.
+- `study_group_students`.`teacher_email` is blank.
+- `study_group_students`.`active` is blank unless a future workflow defines a default.
+- `study_group_students`.`inactive_comment` is blank.
 - After successful popup save, continue processing the next edited row, if any.
 - If the popup is cancelled or fails validation, do not continue silently; keep the main row visible as needing attention.
 

@@ -33,6 +33,11 @@ const STRINGS = Object.freeze({
     noTeachers: 'No hi ha professorat assignat.',
     noStudents: 'No hi ha alumnat assignat per aquesta data.'
   },
+  projecte3r: {
+    saved: 'Aprofitament desat.',
+    emptySave: 'No hi ha canvis per desar.',
+    emptyMonth: 'No hi ha assignacions 3R en aquest mes.'
+  },
   errors: {
     missingDatabaseProperty: 'Script property "db" is required.',
     missingRegistrySheet: 'Missing sheet "tables" in database registry.'

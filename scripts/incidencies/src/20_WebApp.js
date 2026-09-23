@@ -135,3 +135,9 @@ function saveTuesdaySessionComments(updates) {
     return saveTuesdaySessionComments_(updates);
   });
 }
+
+function deactivateStudyGroupStudentMeasure(id, reason) {
+  return runWebAction_(function() {
+    return deactivateStudyGroupStudentMeasure_(id, reason);
+  });
+}

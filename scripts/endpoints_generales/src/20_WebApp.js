@@ -42,6 +42,18 @@ function saveDimartsComments(updates) {
   }, { savedCount: 0 });
 }
 
+function getProjecte3rPayload(monthDateText) {
+  return runWebAction_(function() {
+    return buildProjecte3rPayload_(monthDateText);
+  }, { weeks: [], outcomeOptions: [] });
+}
+
+function saveProjecte3rOutcomes(updates) {
+  return runWebAction_(function() {
+    return saveProjecte3rOutcomes_(updates);
+  }, { savedCount: 0 });
+}
+
 function authorizeEndpointPermissions() {
   const settings = loadExpulsionSettings_();
 
@@ -50,7 +62,9 @@ function authorizeEndpointPermissions() {
   openTableSheet_(TABLE_INCIDENCIES, SHEET_EXPULSIONS).getLastRow();
   openTableSheet_(TABLE_INCIDENCIES, SHEET_STUDY_GROUP_STUDENTS).getLastRow();
   openTableSheet_(TABLE_INCIDENCIES, SHEET_STUDY_GROUP_TEACHERS).getLastRow();
+  openTableSheet_(TABLE_INCIDENCIES, SHEET_3R_PROJECT).getLastRow();
   loadDimartsSettings_();
+  loadProjecte3rSettings_();
   DriveApp.getFolderById(settings.folderId).getName();
   const master = DriveApp.getFileById(settings.masterDocumentId);
   DocumentApp.openById(master.getId()).getName();
