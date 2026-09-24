@@ -100,6 +100,18 @@ function saveThirdProjectOutcomes(updates) {
   });
 }
 
+function deleteThirdProjectSession(id) {
+  return runWebAction_(function() {
+    return deleteThirdProjectSession_(id);
+  });
+}
+
+function moveThirdProjectSession(id, dateText) {
+  return runWebAction_(function() {
+    return moveThirdProjectSession_(id, dateText);
+  });
+}
+
 function getExpulsionDefaultsPayload(studentName, className) {
   return runWebAction_(function() {
     return buildExpulsionDefaultsPayload_(studentName, className);

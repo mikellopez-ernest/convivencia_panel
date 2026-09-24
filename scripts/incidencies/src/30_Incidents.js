@@ -1076,6 +1076,84 @@ function saveThirdProjectOutcomes_(updates) {
   return { ok: true, status: 'saved', message: STRINGS.thirdProject.outcomeSaved, savedCount: cleanUpdates.length };
 }
 
+function deleteThirdProjectSession_(id) {
+  const config = loadIncidentConfig_();
+  assertAuthorized_(config);
+
+  const cleanId = String(id || '').trim();
+
+  if (!cleanId) {
+    throw new Error('3R project row id is required.');
+  }
+
+  withScriptLock_('3r_project delete', function() {
+    const sheet = openTableSheet_(INCIDENTS_TABLE_NAME, INCIDENTS_3R_PROJECT_SHEET_NAME);
+    const headers = requireHeaders_(sheet, THIRD_PROJECT_HEADERS, INCIDENTS_TABLE_NAME + '.' + INCIDENTS_3R_PROJECT_SHEET_NAME);
+    const rows = getDataRows_(sheet);
+    let targetSheetRow = 0;
+
+    rows.forEach(function(row, index) {
+      if (String(row[headers.id] || '').trim() === cleanId) {
+        targetSheetRow = index + 2;
+      }
+    });
+
+    if (!targetSheetRow) {
+      throw new Error('No s’ha trobat la sessió 3R amb id ' + cleanId + '.');
+    }
+
+    sheet.deleteRow(targetSheetRow);
+  });
+
+  return {
+    ok: true,
+    status: 'deleted',
+    message: 'Sessió 3R eliminada.'
+  };
+}
+
+function moveThirdProjectSession_(id, dateText) {
+  const config = loadIncidentConfig_();
+  assertAuthorized_(config);
+
+  const cleanId = String(id || '').trim();
+  const newDate = parseDateOnly_(dateText, 'nova data de la sessió 3R');
+
+  if (!cleanId) {
+    throw new Error('3R project row id is required.');
+  }
+
+  if (isWeekend_(newDate)) {
+    throw new Error('Les sessions 3R només es poden moure de dilluns a divendres.');
+  }
+
+  withScriptLock_('3r_project move', function() {
+    const sheet = openTableSheet_(INCIDENTS_TABLE_NAME, INCIDENTS_3R_PROJECT_SHEET_NAME);
+    const headers = requireHeaders_(sheet, THIRD_PROJECT_HEADERS, INCIDENTS_TABLE_NAME + '.' + INCIDENTS_3R_PROJECT_SHEET_NAME);
+    const rows = getDataRows_(sheet);
+    let targetSheetRow = 0;
+
+    rows.forEach(function(row, index) {
+      if (String(row[headers.id] || '').trim() === cleanId) {
+        targetSheetRow = index + 2;
+      }
+    });
+
+    if (!targetSheetRow) {
+      throw new Error('No s’ha trobat la sessió 3R amb id ' + cleanId + '.');
+    }
+
+    sheet.getRange(targetSheetRow, headers.date + 1).setValue(newDate);
+  });
+
+  return {
+    ok: true,
+    status: 'moved',
+    message: 'Sessió 3R moguda al ' + formatDateOnly_(newDate) + '.',
+    date: formatDateOnly_(newDate)
+  };
+}
+
 function buildExpulsionDefaultsPayload_(studentName, className) {
   const config = loadIncidentConfig_();
   assertAuthorized_(config);

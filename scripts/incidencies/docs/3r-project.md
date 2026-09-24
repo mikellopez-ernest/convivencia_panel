@@ -341,6 +341,30 @@ Rules:
 - Disable/block the Save button while saving.
 - Use the global busy indicator while saving.
 
+### Session Actions
+
+Each existing assignment shows two icon actions in the top-right corner of its calendar block:
+
+- a red X that deletes only that `3r_project` row;
+- a vertical three-dot menu with `Moure sessió`.
+
+Delete behavior:
+
+- Ask for confirmation before deleting.
+- Find the selected row by `3r_project`.`id`.
+- Delete only that row from `3r_project`.
+- Do not delete or modify any other session for the student.
+- Reload the visible month after success.
+
+Move behavior:
+
+- Open a date picker defaulted to the selected assignment's current `date`.
+- Display the picker in Catalan with Monday as the first day of the week.
+- Allow Monday through Friday and disable weekends because the 3R calendar does not render Saturday or Sunday.
+- Find the selected row by `3r_project`.`id` and update only its `date`.
+- Preserve `student_id`, `row_id`, `student`, `aprofitament`, and `teacher_email`.
+- After success, navigate to and reload the destination month so the moved assignment remains visible.
+
 ### Page Data Rules
 
 - Load `config`.`3r day` / `config`.`3r teacher` mappings.
@@ -373,9 +397,10 @@ Rules:
 4. Load config teacher availability.
 5. Load `3r_project` rows for the visible month.
 6. Render the full-month weekday-only calendar.
-7. User edits `aprofitament` comboboxes.
-8. On floating Save, validate edited values.
-9. Update only changed `aprofitament` cells in existing rows.
+7. User may delete one assignment or move it to another weekday using its top-right actions.
+8. User edits `aprofitament` comboboxes.
+9. On floating Save, validate edited values.
+10. Update only changed `aprofitament` cells in existing rows.
 
 ## Privacy
 

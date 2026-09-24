@@ -12,6 +12,9 @@
         studyGroupMoveModal: null,
         studyGroupMovePicker: null,
         thirdProjectModal: null,
+        thirdProjectDeleteModal: null,
+        thirdProjectMoveModal: null,
+        thirdProjectMovePicker: null,
         expulsionModal: null,
         studentDetailIncidents: [],
         restorativeMeasures: [],
@@ -30,6 +33,7 @@
         activeSpecialRow: null,
         activeStudyGroupRemovalRow: null,
         activeStudyGroupMoveRow: null,
+        activeThirdProjectRow: null,
         thirdProjectSelectedDates: [],
         saveQueue: [],
         isSaving: false,
@@ -104,6 +108,8 @@
         state.studyGroupRemoveModal = new bootstrap.Modal(document.getElementById('studyGroupRemoveModal'));
         state.studyGroupMoveModal = new bootstrap.Modal(document.getElementById('studyGroupMoveModal'));
         state.thirdProjectModal = new bootstrap.Modal(document.getElementById('thirdProjectModal'));
+        state.thirdProjectDeleteModal = new bootstrap.Modal(document.getElementById('thirdProjectDeleteModal'));
+        state.thirdProjectMoveModal = new bootstrap.Modal(document.getElementById('thirdProjectMoveModal'));
         state.expulsionModal = new bootstrap.Modal(document.getElementById('expulsionModal'));
         state.picker = flatpickr('#selectedDate', {
           dateFormat: 'd/m/Y',
@@ -136,6 +142,12 @@
           disableMobile: false,
           onChange: (_selectedDates, dateStr) => reloadThirdProjectAvailability(dateStr)
         });
+        state.thirdProjectMovePicker = flatpickr('#thirdProjectMoveDate', {
+          dateFormat: 'd/m/Y',
+          locale: flatpickr.l10ns.ca,
+          disableMobile: true,
+          disable: [(date) => date.getDay() === 0 || date.getDay() === 6]
+        });
         flatpickr('.expulsion-date', {
           dateFormat: 'd/m/Y',
           locale: flatpickr.l10ns.es,
@@ -165,6 +177,8 @@
         document.getElementById('confirmStudyGroupRemoveButton').addEventListener('click', confirmStudyGroupRemoval);
         document.getElementById('confirmStudyGroupMoveButton').addEventListener('click', confirmStudyGroupMove);
         document.getElementById('saveThirdProjectButton').addEventListener('click', saveThirdProjectFromModal);
+        document.getElementById('confirmThirdProjectDeleteButton').addEventListener('click', confirmThirdProjectDelete);
+        document.getElementById('confirmThirdProjectMoveButton').addEventListener('click', confirmThirdProjectMove);
         document.getElementById('saveExpulsionButton').addEventListener('click', saveExpulsionFromModal);
         ['studyGroupModal', 'thirdProjectModal', 'expulsionModal'].forEach((id) => {
           document.getElementById(id).addEventListener('hidden.bs.modal', handleSpecialModalHidden);
@@ -542,12 +556,49 @@
               (cell.assignments || []).forEach((assignment) => {
                 assignmentCount += 1;
                 const block = document.createElement('div');
+                const header = document.createElement('div');
                 const name = document.createElement('div');
+                const actions = document.createElement('div');
+                const deleteButton = document.createElement('button');
+                const menuContainer = document.createElement('div');
+                const menuButton = document.createElement('button');
+                const menu = document.createElement('ul');
+                const moveItem = document.createElement('li');
+                const moveButton = document.createElement('button');
                 const select = document.createElement('select');
 
                 block.className = 'calendar-assignment';
-                name.className = 'small mb-1';
+                header.className = 'calendar-assignment-header';
+                name.className = 'small calendar-assignment-name';
                 name.textContent = assignment.student || '(sense alumne)';
+                actions.className = 'calendar-assignment-actions';
+                deleteButton.type = 'button';
+                deleteButton.className = 'calendar-action-button calendar-delete-button';
+                deleteButton.innerHTML = '<i class="bi bi-x-lg" aria-hidden="true"></i>';
+                deleteButton.title = 'Eliminar sessió';
+                deleteButton.setAttribute('aria-label', `Eliminar sessió 3R de ${assignment.student || 'alumne'}`);
+                deleteButton.addEventListener('click', () => openThirdProjectDeleteModal(assignment));
+                menuContainer.className = 'dropdown';
+                menuButton.type = 'button';
+                menuButton.className = 'calendar-action-button calendar-menu-button';
+                menuButton.innerHTML = '<i class="bi bi-three-dots-vertical" aria-hidden="true"></i>';
+                menuButton.title = 'Més opcions';
+                menuButton.setAttribute('aria-label', `Més opcions per a ${assignment.student || 'alumne'}`);
+                menuButton.setAttribute('data-bs-toggle', 'dropdown');
+                menuButton.setAttribute('aria-expanded', 'false');
+                menu.className = 'dropdown-menu dropdown-menu-end';
+                moveButton.type = 'button';
+                moveButton.className = 'dropdown-item';
+                moveButton.textContent = 'Moure sessió';
+                moveButton.addEventListener('click', () => openThirdProjectMoveModal(assignment));
+                moveItem.appendChild(moveButton);
+                menu.appendChild(moveItem);
+                menuContainer.appendChild(menuButton);
+                menuContainer.appendChild(menu);
+                actions.appendChild(deleteButton);
+                actions.appendChild(menuContainer);
+                header.appendChild(name);
+                header.appendChild(actions);
                 select.className = 'form-select form-select-sm';
                 populateSelect(select, options, '');
                 select.value = assignment.aprofitament || '';
@@ -560,7 +611,7 @@
                   syncSaveButtonState();
                 });
 
-                block.appendChild(name);
+                block.appendChild(header);
                 block.appendChild(select);
                 td.appendChild(block);
               });
@@ -575,6 +626,75 @@
         empty.classList.toggle('d-none', assignmentCount > 0);
         empty.textContent = 'No hi ha assignacions 3R en aquest mes.';
         syncSaveButtonState();
+      }
+
+      function openThirdProjectDeleteModal(assignment) {
+        state.activeThirdProjectRow = assignment;
+        document.getElementById('thirdProjectDeleteAlert').className = 'alert d-none';
+        document.getElementById('thirdProjectDeleteStudent').textContent = `${assignment.student || 'Alumne'} · ${assignment.date || ''}`;
+        state.thirdProjectDeleteModal.show();
+      }
+
+      function confirmThirdProjectDelete() {
+        const assignment = state.activeThirdProjectRow;
+
+        if (!assignment || !assignment.id) {
+          showModalAlert('thirdProjectDeleteAlert', 'No s’ha identificat la sessió 3R.', 'danger');
+          return;
+        }
+
+        const button = document.getElementById('confirmThirdProjectDeleteButton');
+        Api.call('deleteThirdProjectSession', [assignment.id], { button })
+          .then((payload) => {
+            if (!payload || !payload.ok) {
+              showModalAlert('thirdProjectDeleteAlert', payload && payload.message ? payload.message : 'No s’ha pogut eliminar la sessió 3R.', 'danger');
+              return;
+            }
+
+            state.thirdProjectDeleteModal.hide();
+            showAlert(payload.message || 'Sessió 3R eliminada.', 'success');
+            loadThirdProjectMonth();
+          })
+          .catch((error) => showModalAlert('thirdProjectDeleteAlert', error.message || String(error), 'danger'));
+      }
+
+      function openThirdProjectMoveModal(assignment) {
+        state.activeThirdProjectRow = assignment;
+        document.getElementById('thirdProjectMoveAlert').className = 'alert d-none';
+        state.thirdProjectMovePicker.setDate(assignment.date, false, 'd/m/Y');
+        state.thirdProjectMoveModal.show();
+      }
+
+      function confirmThirdProjectMove() {
+        const assignment = state.activeThirdProjectRow;
+        const dateText = document.getElementById('thirdProjectMoveDate').value.trim();
+
+        if (!assignment || !assignment.id) {
+          showModalAlert('thirdProjectMoveAlert', 'No s’ha identificat la sessió 3R.', 'danger');
+          return;
+        }
+
+        if (!dateText) {
+          showModalAlert('thirdProjectMoveAlert', 'La nova data és obligatòria.', 'warning');
+          return;
+        }
+
+        const button = document.getElementById('confirmThirdProjectMoveButton');
+        Api.call('moveThirdProjectSession', [assignment.id, dateText], { button })
+          .then((payload) => {
+            if (!payload || !payload.ok) {
+              showModalAlert('thirdProjectMoveAlert', payload && payload.message ? payload.message : 'No s’ha pogut moure la sessió 3R.', 'danger');
+              return;
+            }
+
+            const movedDate = parseClientDate(payload.date);
+            state.thirdMonth = movedDate.getMonth();
+            state.thirdYear = movedDate.getFullYear();
+            state.thirdProjectMoveModal.hide();
+            showAlert(payload.message || 'Sessió 3R moguda.', 'success');
+            loadThirdProjectMonth();
+          })
+          .catch((error) => showModalAlert('thirdProjectMoveAlert', error.message || String(error), 'danger'));
       }
 
       function loadExpulsions(query) {
