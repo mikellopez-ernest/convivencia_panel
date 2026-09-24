@@ -148,7 +148,7 @@ Columns:
 | `comment` | `study_group_students`.`comment` | Editable text box |
 | `teacher_email` | `study_group_students`.`teacher_email` | Stored when saving, not necessarily displayed |
 | `active` | `study_group_students`.`active` | Used to hide inactive/future assignments |
-| `inactive_comment` | `study_group_students`.`inactive_comment` | Reason for removing the current/future restorative measure |
+| `inactive_comment` | `study_group_students`.`inactive_comment` | Reason for cancelling this session |
 
 Rules:
 
@@ -159,7 +159,7 @@ Rules:
 - Editing a comment should mark the row as unsaved.
 - Rows where `active` is real boolean `false` or string `FALSE` are not shown as active session rows.
 - Blank `active` values are treated as active.
-- A red X action appears only when the mouse pointer is over the row, or when the row/action receives focus.
+- A red X and a three-dot options action appear when the mouse pointer is over the row, or when the row/action receives focus.
 - The table should be responsive with Bootstrap behavior on narrow screens.
 
 ## Remove Restorative Measure Behavior
@@ -172,7 +172,7 @@ When clicked:
 2. Show this information text:
 
 ```text
-Si continues elimines la possibilitat que aquest/a alumne/a continui amb la seva mesura restaurativa per aquesta sessió i les següents
+Si continues, cancel·laràs només aquesta sessió. La resta de sessions de l'alumne es mantindran actives.
 ```
 
 3. Show a text box labelled `Motiu`.
@@ -182,12 +182,24 @@ When `Eliminar mesura` is clicked:
 
 - `Motiu` is required.
 - Find the clicked `study_group_students` row by `id`.
-- Identify the student by `student_id`; if `student_id` is blank, fall back to exact `student` text.
-- Identify the clicked row date.
-- For every `study_group_students` row with the same student and a `date` greater than or equal to the clicked row date:
+- Update only the clicked row:
   - set `active` to real boolean `FALSE`;
   - set `inactive_comment` to the text written in `Motiu`.
+- Do not modify any other session for the student.
 - Reload the page data after successful save.
+
+## Move Session Behavior
+
+The three-dot action opens a menu prepared for additional options. Its first option is `Moure sessió`.
+
+When selected:
+
+- Open a popup with a date picker defaulted to the clicked row's current `date`.
+- Display the picker in Catalan and start calendar weeks on Monday.
+- Require a valid date in `dd/mm/yyyy` format.
+- On confirmation, find the clicked `study_group_students` row by `id` and update only its `date`.
+- Do not modify the student's other sessions or any other field in the selected row.
+- Reload the currently displayed session after a successful move.
 
 ## Save Behavior
 

@@ -148,7 +148,7 @@
                 <table class="table table-striped table-hover align-middle mb-0">
                   <thead class="table-light">
                     <tr>
-                      <th class="study-remove-column"></th>
+                      <th class="study-actions-column"></th>
                       <th>id</th>
                       <th>date</th>
                       <th>student</th>
@@ -497,18 +497,38 @@
       <div class="modal-dialog">
         <div class="modal-content">
           <div class="modal-header">
-            <h2 id="studyGroupRemoveModalTitle" class="modal-title h5">Eliminar mesura</h2>
+            <h2 id="studyGroupRemoveModalTitle" class="modal-title h5">Cancel·lar sessió</h2>
             <button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Tanca"></button>
           </div>
           <div class="modal-body">
             <div id="studyGroupRemoveAlert" class="alert d-none"></div>
-            <p>Si continues elimines la possibilitat que aquest/a alumne/a continui amb la seva mesura restaurativa per aquesta sessió i les següents.</p>
+            <p>Si continues, cancel·laràs només aquesta sessió. La resta de sessions de l'alumne es mantindran actives.</p>
             <label for="studyGroupRemoveReason" class="form-label">Motiu</label>
             <textarea id="studyGroupRemoveReason" class="form-control" rows="4"></textarea>
           </div>
           <div class="modal-footer">
             <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancel·la</button>
-            <button id="confirmStudyGroupRemoveButton" class="btn btn-danger" type="button">Eliminar mesura</button>
+            <button id="confirmStudyGroupRemoveButton" class="btn btn-danger" type="button">Cancel·lar sessió</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="studyGroupMoveModal" tabindex="-1" aria-labelledby="studyGroupMoveModalTitle" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2 id="studyGroupMoveModalTitle" class="modal-title h5">Moure sessió</h2>
+            <button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Tanca"></button>
+          </div>
+          <div class="modal-body">
+            <div id="studyGroupMoveAlert" class="alert d-none"></div>
+            <label for="studyGroupMoveDate" class="form-label">Nova data</label>
+            <input id="studyGroupMoveDate" class="form-control" type="text" autocomplete="off">
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancel·la</button>
+            <button id="confirmStudyGroupMoveButton" class="btn btn-primary" type="button">Moure sessió</button>
           </div>
         </div>
       </div>
@@ -516,6 +536,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/cat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <?!= include('UiScripts'); ?>
   </body>

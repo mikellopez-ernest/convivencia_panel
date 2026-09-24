@@ -136,24 +136,45 @@
         min-width: 190px;
       }
 
-      .study-remove-column {
+      .study-actions-column {
         text-align: center;
-        width: 2.5rem;
+        width: 5rem;
       }
 
-      .study-remove-button {
+      .study-row-actions {
+        align-items: center;
+        display: flex;
+        justify-content: center;
+        min-width: 4rem;
+      }
+
+      .study-action-button {
         background: transparent;
         border: 0;
-        color: #dc3545;
         opacity: 0;
         padding: 0.25rem;
         transition: opacity 120ms ease-in-out;
       }
 
-      #tuesdayRows tr:hover .study-remove-button,
-      #tuesdayRows tr:focus-within .study-remove-button,
-      .study-remove-button:focus {
+      .study-remove-button {
+        color: #dc3545;
+      }
+
+      .study-menu-button {
+        color: #495057;
+      }
+
+      #tuesdayRows tr:hover .study-action-button,
+      #tuesdayRows tr:focus-within .study-action-button,
+      .study-action-button:focus,
+      .study-action-button[aria-expanded="true"] {
         opacity: 1;
+      }
+
+      @media (hover: none) {
+        .study-action-button {
+          opacity: 1;
+        }
       }
 
       .action-fab {

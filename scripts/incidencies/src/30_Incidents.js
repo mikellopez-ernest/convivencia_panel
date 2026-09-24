@@ -708,59 +708,68 @@ function deactivateStudyGroupStudentMeasure_(id, reason) {
     throw new Error('El motiu és obligatori.');
   }
 
-  const updatedCount = withScriptLock_('study_group_students deactivate', function() {
+  withScriptLock_('study_group_students deactivate', function() {
     const sheet = openTableSheet_(INCIDENTS_TABLE_NAME, INCIDENTS_STUDY_GROUP_STUDENTS_SHEET_NAME);
     const headers = requireHeaders_(sheet, STUDY_GROUP_STUDENT_HEADERS, INCIDENTS_TABLE_NAME + '.' + INCIDENTS_STUDY_GROUP_STUDENTS_SHEET_NAME);
     const rows = getDataRows_(sheet);
-    let target = null;
+    let targetSheetRow = 0;
 
     rows.forEach(function(row, index) {
       if (String(row[headers.id] || '').trim() === cleanId) {
-        target = {
-          row: row,
-          sheetRow: index + 2,
-          date: parseDateMaybe_(row[headers.date]),
-          studentId: String(row[headers.student_id] || '').trim(),
-          student: String(row[headers.student] || '').trim()
-        };
+        targetSheetRow = index + 2;
       }
     });
 
-    if (!target || !target.date) {
+    if (!targetSheetRow) {
       throw new Error('No s’ha trobat el registre d’estudi amb id ' + cleanId + '.');
     }
 
-    const targetTime = startOfDay_(target.date).getTime();
-    const updates = [];
-
-    rows.forEach(function(row, index) {
-      const date = parseDateMaybe_(row[headers.date]);
-      const studentId = String(row[headers.student_id] || '').trim();
-      const student = String(row[headers.student] || '').trim();
-      const sameStudent = target.studentId
-        ? studentId === target.studentId
-        : student && student === target.student;
-
-      if (!sameStudent || !date || startOfDay_(date).getTime() < targetTime) {
-        return;
-      }
-
-      updates.push(index + 2);
-    });
-
-    updates.forEach(function(sheetRow) {
-      sheet.getRange(sheetRow, headers.active + 1).setValue(false);
-      sheet.getRange(sheetRow, headers.inactive_comment + 1).setValue(cleanReason);
-    });
-
-    return updates.length;
+    sheet.getRange(targetSheetRow, headers.active + 1).setValue(false);
+    sheet.getRange(targetSheetRow, headers.inactive_comment + 1).setValue(cleanReason);
   });
 
   return {
     ok: true,
     status: 'deactivated',
-    message: 'Mesura eliminada.',
-    updatedCount: updatedCount
+    message: 'Sessió cancel·lada.'
+  };
+}
+
+function moveStudyGroupStudentSession_(id, dateText) {
+  const config = loadIncidentConfig_();
+  assertAuthorized_(config);
+
+  const cleanId = String(id || '').trim();
+  const newDate = parseDateOnly_(dateText, 'nova data de la sessió');
+
+  if (!cleanId) {
+    throw new Error('Study-group row id is required.');
+  }
+
+  withScriptLock_('study_group_students move', function() {
+    const sheet = openTableSheet_(INCIDENTS_TABLE_NAME, INCIDENTS_STUDY_GROUP_STUDENTS_SHEET_NAME);
+    const headers = requireHeaders_(sheet, STUDY_GROUP_STUDENT_HEADERS, INCIDENTS_TABLE_NAME + '.' + INCIDENTS_STUDY_GROUP_STUDENTS_SHEET_NAME);
+    const rows = getDataRows_(sheet);
+    let targetSheetRow = 0;
+
+    rows.forEach(function(row, index) {
+      if (String(row[headers.id] || '').trim() === cleanId) {
+        targetSheetRow = index + 2;
+      }
+    });
+
+    if (!targetSheetRow) {
+      throw new Error('No s’ha trobat el registre d’estudi amb id ' + cleanId + '.');
+    }
+
+    sheet.getRange(targetSheetRow, headers.date + 1).setValue(newDate);
+  });
+
+  return {
+    ok: true,
+    status: 'moved',
+    message: 'Sessió moguda al ' + formatDateOnly_(newDate) + '.',
+    date: formatDateOnly_(newDate)
   };
 }
 

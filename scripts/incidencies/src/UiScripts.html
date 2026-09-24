@@ -9,6 +9,8 @@
         meetingSummaryModal: null,
         studyGroupModal: null,
         studyGroupRemoveModal: null,
+        studyGroupMoveModal: null,
+        studyGroupMovePicker: null,
         thirdProjectModal: null,
         expulsionModal: null,
         studentDetailIncidents: [],
@@ -27,6 +29,7 @@
         pageLoaded: {},
         activeSpecialRow: null,
         activeStudyGroupRemovalRow: null,
+        activeStudyGroupMoveRow: null,
         thirdProjectSelectedDates: [],
         saveQueue: [],
         isSaving: false,
@@ -99,6 +102,7 @@
         state.meetingSummaryModal = new bootstrap.Modal(document.getElementById('meetingSummaryModal'));
         state.studyGroupModal = new bootstrap.Modal(document.getElementById('studyGroupModal'));
         state.studyGroupRemoveModal = new bootstrap.Modal(document.getElementById('studyGroupRemoveModal'));
+        state.studyGroupMoveModal = new bootstrap.Modal(document.getElementById('studyGroupMoveModal'));
         state.thirdProjectModal = new bootstrap.Modal(document.getElementById('thirdProjectModal'));
         state.expulsionModal = new bootstrap.Modal(document.getElementById('expulsionModal'));
         state.picker = flatpickr('#selectedDate', {
@@ -119,6 +123,11 @@
           locale: flatpickr.l10ns.es,
           disableMobile: false,
           onChange: (_selectedDates, dateStr) => loadTuesdaySessions(dateStr)
+        });
+        state.studyGroupMovePicker = flatpickr('#studyGroupMoveDate', {
+          dateFormat: 'd/m/Y',
+          locale: flatpickr.l10ns.ca,
+          disableMobile: true
         });
         state.thirdProjectStartPicker = flatpickr('#thirdProjectStartDate', {
           dateFormat: 'd/m/Y',
@@ -154,6 +163,7 @@
         document.getElementById('studyGroupCount').addEventListener('input', renderStudyGroupDateInputs);
         document.getElementById('saveStudyGroupButton').addEventListener('click', saveStudyGroupFromModal);
         document.getElementById('confirmStudyGroupRemoveButton').addEventListener('click', confirmStudyGroupRemoval);
+        document.getElementById('confirmStudyGroupMoveButton').addEventListener('click', confirmStudyGroupMove);
         document.getElementById('saveThirdProjectButton').addEventListener('click', saveThirdProjectFromModal);
         document.getElementById('saveExpulsionButton').addEventListener('click', saveExpulsionFromModal);
         ['studyGroupModal', 'thirdProjectModal', 'expulsionModal'].forEach((id) => {
@@ -311,7 +321,13 @@
           const tr = document.createElement('tr');
           const input = document.createElement('input');
           const actionCell = document.createElement('td');
+          const actionGroup = document.createElement('div');
           const removeButton = document.createElement('button');
+          const menuContainer = document.createElement('div');
+          const menuButton = document.createElement('button');
+          const menu = document.createElement('ul');
+          const moveItem = document.createElement('li');
+          const moveButton = document.createElement('button');
 
           input.className = 'form-control form-control-sm comment-input';
           input.value = row.comment || '';
@@ -321,14 +337,34 @@
             syncSaveButtonState();
           });
 
-          actionCell.className = 'study-remove-column';
+          actionCell.className = 'study-actions-column';
+          actionGroup.className = 'study-row-actions';
           removeButton.type = 'button';
-          removeButton.className = 'study-remove-button';
+          removeButton.className = 'study-action-button study-remove-button';
           removeButton.innerHTML = '<i class="bi bi-x-lg" aria-hidden="true"></i>';
-          removeButton.title = 'Eliminar mesura';
-          removeButton.setAttribute('aria-label', `Eliminar mesura de ${row.student || 'alumne'}`);
+          removeButton.title = 'Cancel·lar sessió';
+          removeButton.setAttribute('aria-label', `Cancel·lar sessió de ${row.student || 'alumne'}`);
           removeButton.addEventListener('click', () => openStudyGroupRemovalModal(row));
-          actionCell.appendChild(removeButton);
+          menuContainer.className = 'dropdown';
+          menuButton.type = 'button';
+          menuButton.className = 'study-action-button study-menu-button';
+          menuButton.innerHTML = '<i class="bi bi-three-dots-vertical" aria-hidden="true"></i>';
+          menuButton.title = 'Més opcions';
+          menuButton.setAttribute('aria-label', `Més opcions per a ${row.student || 'alumne'}`);
+          menuButton.setAttribute('data-bs-toggle', 'dropdown');
+          menuButton.setAttribute('aria-expanded', 'false');
+          menu.className = 'dropdown-menu dropdown-menu-end';
+          moveButton.type = 'button';
+          moveButton.className = 'dropdown-item';
+          moveButton.textContent = 'Moure sessió';
+          moveButton.addEventListener('click', () => openStudyGroupMoveModal(row));
+          moveItem.appendChild(moveButton);
+          menu.appendChild(moveItem);
+          menuContainer.appendChild(menuButton);
+          menuContainer.appendChild(menu);
+          actionGroup.appendChild(removeButton);
+          actionGroup.appendChild(menuContainer);
+          actionCell.appendChild(actionGroup);
           tr.appendChild(actionCell);
           appendTextCell(tr, row.id);
           appendTextCell(tr, row.date);
@@ -371,12 +407,12 @@
             document.getElementById('confirmStudyGroupRemoveButton').disabled = false;
 
             if (!payload || !payload.ok) {
-              showModalAlert('studyGroupRemoveAlert', payload && payload.message ? payload.message : 'No s’ha pogut eliminar la mesura.', 'danger');
+              showModalAlert('studyGroupRemoveAlert', payload && payload.message ? payload.message : 'No s’ha pogut cancel·lar la sessió.', 'danger');
               return;
             }
 
             state.studyGroupRemoveModal.hide();
-            showAlert(payload.message || 'Mesura eliminada.', 'success');
+            showAlert(payload.message || 'Sessió cancel·lada.', 'success');
             loadTuesdaySessions(document.getElementById('tuesdayDate').value);
           })
           .withFailureHandler((error) => {
@@ -385,6 +421,42 @@
             showModalAlert('studyGroupRemoveAlert', error.message || String(error), 'danger');
           })
           .deactivateStudyGroupStudentMeasure(row.id, reason);
+      }
+
+      function openStudyGroupMoveModal(row) {
+        state.activeStudyGroupMoveRow = row;
+        document.getElementById('studyGroupMoveAlert').className = 'alert d-none';
+        state.studyGroupMovePicker.setDate(row.date, false, 'd/m/Y');
+        state.studyGroupMoveModal.show();
+      }
+
+      function confirmStudyGroupMove() {
+        const row = state.activeStudyGroupMoveRow;
+        const dateText = document.getElementById('studyGroupMoveDate').value.trim();
+
+        if (!row || !row.id) {
+          showModalAlert('studyGroupMoveAlert', 'No s’ha identificat el registre.', 'danger');
+          return;
+        }
+
+        if (!dateText) {
+          showModalAlert('studyGroupMoveAlert', 'La nova data és obligatòria.', 'warning');
+          return;
+        }
+
+        const button = document.getElementById('confirmStudyGroupMoveButton');
+        Api.call('moveStudyGroupStudentSession', [row.id, dateText], { button })
+          .then((payload) => {
+            if (!payload || !payload.ok) {
+              showModalAlert('studyGroupMoveAlert', payload && payload.message ? payload.message : 'No s’ha pogut moure la sessió.', 'danger');
+              return;
+            }
+
+            state.studyGroupMoveModal.hide();
+            showAlert(payload.message || 'Sessió moguda.', 'success');
+            loadTuesdaySessions(document.getElementById('tuesdayDate').value);
+          })
+          .catch((error) => showModalAlert('studyGroupMoveAlert', error.message || String(error), 'danger'));
       }
 
       function loadThirdProjectMonth() {

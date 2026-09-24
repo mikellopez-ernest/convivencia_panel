@@ -141,3 +141,9 @@ function deactivateStudyGroupStudentMeasure(id, reason) {
     return deactivateStudyGroupStudentMeasure_(id, reason);
   });
 }
+
+function moveStudyGroupStudentSession(id, dateText) {
+  return runWebAction_(function() {
+    return moveStudyGroupStudentSession_(id, dateText);
+  });
+}
