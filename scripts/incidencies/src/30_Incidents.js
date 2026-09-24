@@ -582,7 +582,7 @@ function buildTuesdaySessionsPayload_(selectedDateText) {
   const activeUser = assertAuthorized_(config);
   const studyWeekday = validateWeekday_(config.studyGroupDay, 'Dia_Grup_Estudi');
   const selectedDate = selectedDateText
-    ? sameWeekWeekday_(parseDateOnly_(selectedDateText, 'selected date'), studyWeekday)
+    ? parseDateOnly_(selectedDateText, 'selected date')
     : nextOrSameWeekday_(todayDateOnly_(), studyWeekday);
 
   const payload = {

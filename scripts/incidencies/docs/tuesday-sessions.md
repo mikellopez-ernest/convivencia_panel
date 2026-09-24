@@ -87,15 +87,13 @@ Examples:
 - If today is Wednesday and `Dia_Grup_Estudi` is `tuesday`, default to the next Tuesday.
 - If today is Monday and `Dia_Grup_Estudi` is `wednesday`, default to the next Wednesday.
 
-Changing the selected date reloads teachers and students for the configured study-group weekday in the same week.
+Changing the selected date reloads teachers and students for that exact date. This allows sessions moved away from the configured weekday to remain accessible.
 
-Selected-date normalization:
+Selected-date behavior:
 
 - The date picker may receive any date.
-- The app must resolve the selected date to the configured `Dia_Grup_Estudi` date in the same Monday-Sunday week.
-- Example: if `Dia_Grup_Estudi` is `tuesday` and the user selects Monday, load that week’s Tuesday.
-- Example: if `Dia_Grup_Estudi` is `tuesday` and the user selects Thursday, load that same week’s Tuesday.
-- After loading, the date picker should display the resolved study-group date.
+- After the default date has been established, load the exact date selected by the user.
+- After loading, the date picker should display that selected date.
 
 Week navigation:
 
@@ -247,7 +245,7 @@ No hi ha professorat assignat.
 7. Load `study_group_students` for selected date.
 8. Render teacher text.
 9. Render student table with editable `comment` boxes.
-10. On date change, resolve the selected date to the configured weekday in the same week.
+10. On date change, load the exact selected date.
 11. Reload teacher and student data for the resolved date.
 12. On Save, update changed `comment` values in `study_group_students`.
 
