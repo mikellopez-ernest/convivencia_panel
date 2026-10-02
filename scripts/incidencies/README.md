@@ -14,7 +14,7 @@ The project keeps a generic database connector, then builds an incident-points e
 - Provide a left navigation shell for current and future incident workflows.
 - Render student point totals for the selected academic term/date.
 - Restrict access through script property `access_granted`, resolving roles through `Càrrega lectiva`.
-- Import/refresh `Incidències -> llistat_anual` from a tracking-report XLSX.
+- Refresh the imported XLSX date interval in `Incidències -> llistat_anual`, preserving rows outside that interval.
 - Document internal meeting/restorative records in `Incidències -> meeting_records`.
 - Specify a future read-only `Històric REC` page for saved meeting records.
 - Document study-group assignments in `Incidències -> study_group_students`.
@@ -82,7 +82,7 @@ Import/API properties:
 | --- | --- |
 | `tracking_report_api_url` | API endpoint URL. Current value: `https://automation.hetzner.iernestlluch.info/api/v1/dinantia/tracking/export`. |
 | `tracking_report_bearer` | Bearer token for the API request. |
-| `tracking_report_school_year` | School year sent in the API body, e.g. `2025-26`. |
+| `tracking_report_school_year` | Value sent by the scheduled API refresh. Manual updates offer `Avui`, `Ahir`, `Últims 7 dies`, and `2026-27`. |
 
 ## Source Layout
 

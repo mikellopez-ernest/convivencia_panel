@@ -1934,7 +1934,8 @@
           return;
         }
 
-        resetImportModal('Fitxer preparat. Confirma per substituir llistat_anual.', 'info');
+        setApiImportPeriodVisible(false);
+        resetImportModal('Fitxer preparat. Confirma per actualitzar el període importat.', 'info');
         state.importModal.show();
 
         const reader = new FileReader();
@@ -1948,7 +1949,7 @@
           renderImportPreview({
             ok: true,
             source: 'upload',
-            message: 'Fitxer preparat. Confirma per substituir llistat_anual.',
+            message: 'Fitxer preparat. Confirma per actualitzar el període importat.',
             fileName: state.pendingImport.fileName,
             warnings: []
           });
@@ -1963,12 +1964,14 @@
         state.pendingImport = {
           type: 'api'
         };
-        resetImportModal('Confirma per descarregar l’informe i substituir llistat_anual.', 'info');
+        document.getElementById('apiSchoolYear').value = 'Ahir';
+        setApiImportPeriodVisible(true);
+        resetImportModal('Confirma per descarregar l’informe i actualitzar el període importat.', 'info');
         state.importModal.show();
         renderImportPreview({
           ok: true,
           source: 'api',
-          message: 'Confirma per descarregar l’informe i substituir llistat_anual.',
+          message: 'Confirma per descarregar l’informe i actualitzar el període importat.',
           warnings: []
         });
       }
@@ -1993,7 +1996,7 @@
           return;
         }
 
-        resetImportModal('Substituint llistat_anual...', 'warning');
+        resetImportModal('Actualitzant el període d’incidències...', 'warning');
         setLoading(true);
 
         if (pending.type === 'upload') {
@@ -2013,7 +2016,11 @@
             setLoading(false);
             renderImportFailure(error);
           })
-          .importApiIncidentXlsx();
+          .importApiIncidentXlsx(document.getElementById('apiSchoolYear').value);
+      }
+
+      function setApiImportPeriodVisible(visible) {
+        document.getElementById('apiSchoolYearField').classList.toggle('d-none', !visible);
       }
 
       function renderImportSuccess(payload) {
@@ -2024,7 +2031,7 @@
         }
 
         state.pendingImport = null;
-        setImportAlert(`${payload.message} Files importades: ${payload.importedRows || 0}.`, 'success');
+        setImportAlert(`${payload.message} Files importades: ${payload.importedRows || 0}. Files eliminades: ${payload.deletedRows || 0}.`, 'success');
         renderImportSummary(payload);
         renderImportDiagnostics(payload.details);
         renderImportWarnings(payload.warnings || []);
@@ -2067,6 +2074,10 @@
         document.getElementById('importFile').textContent = payload.fileName || payload.sourceSheetName || '-';
         document.getElementById('importHeaderRow').textContent = payload.headerRow || '-';
         document.getElementById('importRows').textContent = payload.importedRows === undefined ? '-' : payload.importedRows;
+        document.getElementById('importDeletedRows').textContent = payload.deletedRows === undefined ? '-' : payload.deletedRows;
+        document.getElementById('importDateRange').textContent = payload.rangeStart && payload.rangeEnd
+          ? `${payload.rangeStart} - ${payload.rangeEnd}`
+          : '-';
       }
 
       function renderImportDiagnostics(details) {

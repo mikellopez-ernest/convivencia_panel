@@ -1,18 +1,16 @@
 # Incidents XLSX Import Spec
 
-The XLSX import flow updates the main annual incidents table from a tracking report export by copying the incident table from the uploaded/downloaded first worksheet into the destination sheet.
-
-This is a behavior spec only. Do not implement or deploy unless explicitly requested.
+The XLSX import flow refreshes a date interval in the main annual incidents table from the uploaded/downloaded first worksheet.
 
 ## Purpose
 
-Allow an authorized user to upload or download a tracking report `.xlsx` file and replace the contents of:
+Allow an authorized user to upload or download a complete or partial tracking report `.xlsx` file and make the covered date interval authoritative in:
 
 | Logical table | Sheet |
 | --- | --- |
 | `Incidències` | `llistat_anual` |
 
-The uploaded file may contain report metadata before the actual table. The importer must find the incident header row, discard all rows above it, and copy the header row plus all rows below it into `llistat_anual`.
+The uploaded file may contain report metadata before the actual table. The importer must find the incident header row, discard all rows above it, determine the earliest and latest imported `Data`, remove destination rows in that inclusive interval, and then insert all imported rows.
 
 The import can be started from either source:
 
@@ -57,10 +55,12 @@ The importer must locate the table by finding the row containing these required 
 Import rules:
 
 - Scan rows only until the required header row is found.
-- Do not validate individual data values.
+- Do not validate individual data values except `Data`, which is required to calculate the replacement interval.
 - Do not require a fixed header row.
 - Delete/discard all rows above the detected header row.
-- Copy the detected header row and every row below it into the destination as displayed values.
+- Treat the rows below the detected header as candidate incident rows.
+- Ignore fully blank candidate rows.
+- Preserve candidate row values as displayed by the converted workbook.
 
 ## Import Behavior
 
@@ -72,17 +72,29 @@ High-level flow:
 4. System reads the first worksheet's displayed values.
 5. System finds the required incident header row.
 6. System discards metadata rows above the header.
-7. System clears existing contents of `Incidències -> llistat_anual`.
-8. System writes the header row and data rows into `llistat_anual`.
+7. System parses `Data` in every nonblank candidate row.
+8. System calculates the earliest and latest imported calendar dates.
+9. System reads the existing rows from `Incidències -> llistat_anual`.
+10. System removes existing rows whose `Data` is inside that inclusive interval.
+11. System preserves existing rows before or after the interval, including rows whose dates cannot be parsed.
+12. System writes the preserved rows followed by all incoming rows.
+13. System reports the refreshed interval, imported-row count, and removed-row count.
 
-Replacement rule:
+Date-window replacement rules:
 
-- This is a full replace, not an append.
-- The previous `llistat_anual` contents are deleted before writing the uploaded values.
-- The destination sheet should start at row 1 with the detected header row.
-- Rows below the header should be copied below it.
+- The interval starts on the earliest imported `Data` date and ends on the latest imported `Data` date, inclusive.
+- Time values do not affect interval membership; comparison uses calendar dates in the Apps Script timezone.
+- Every existing row within the interval is removed, even when no matching incoming row replaces it.
+- Every nonblank incoming row is written. The importer does not compare it with the rows being removed.
+- Incoming source order is preserved.
+- Existing rows outside the interval retain their relative order and appear before the newly imported rows.
+- Existing rows with blank or unreadable `Data` are preserved because they cannot safely be assigned to the interval.
+- If the incoming workbook has no incident rows or any nonblank incoming row has invalid `Data`, stop without modifying `llistat_anual`.
+- If `llistat_anual` is empty, write the canonical header to row 1 before writing data.
+- If `llistat_anual` is not empty, row 1 must contain the canonical headers in the expected order; otherwise stop without writing.
+- The destination read and date-window replacement must run under a script lock to prevent concurrent imports from overwriting one another.
 
-Both manual upload and API update must use the same conversion and replacement pipeline after the XLSX file is available.
+Both manual upload and API update must use the same conversion and date-window replacement pipeline after the XLSX file is available.
 
 ## Import UI
 
@@ -104,9 +116,9 @@ Behavior:
 1. User clicks `Upload and update`.
 2. UI opens an upload page, modal, or browser file picker.
 3. User selects a `.xlsx` file.
-4. System prepares the uploaded file for replacement.
-5. System asks for confirmation before replacing `llistat_anual`.
-6. If confirmed, system runs the full replace import.
+4. System prepares the uploaded file and calculates its date interval.
+5. System asks for confirmation before refreshing that interval in `llistat_anual`.
+6. If confirmed, system runs the date-window replacement.
 7. UI reports success, warnings, or failure.
 
 ### `API update`
@@ -114,12 +126,21 @@ Behavior:
 Behavior:
 
 1. User clicks `API update`.
-2. System reads API configuration from script properties.
-3. System calls the API to retrieve the tracking report `.xlsx`.
-4. System prepares the downloaded file for replacement.
-5. System asks for confirmation before replacing `llistat_anual`, unless implementation intentionally defines this action as one-click after download.
-6. If confirmed, system runs the full replace import.
-7. UI reports success, warnings, or failure.
+2. UI shows a single-select control with these exact options and payload values:
+   - `Avui`
+   - `Ahir`
+   - `Últims 7 dies`
+   - `2026-27`
+3. The default manual selection is `Ahir`.
+4. System reads the API URL and bearer token from script properties.
+5. System sends the selected text unchanged in the `school_year` JSON property.
+6. System calls the API to retrieve the tracking report `.xlsx`.
+7. System prepares the downloaded file and calculates its date interval.
+8. System asks for confirmation before refreshing that interval in `llistat_anual`.
+9. If confirmed, system runs the date-window replacement.
+10. UI reports success, warnings, or failure.
+
+The server must reject a manual value outside those four options. The manual selection does not overwrite `tracking_report_school_year`.
 
 ## Scheduled API Refresh
 
@@ -139,15 +160,16 @@ Responsibilities:
 4. Convert the XLSX to a temporary Google Spreadsheet.
 5. Find the incident header row in the first worksheet.
 6. Discard rows above the header.
-7. Replace `Incidències -> llistat_anual`.
-8. Return/log a summary with imported row count and any non-secret diagnostic information.
+7. Calculate the earliest and latest imported `Data` dates.
+8. Replace that inclusive date interval in `Incidències -> llistat_anual`.
+9. Return/log the interval, imported-row count, removed-row count, and any non-secret diagnostic information.
 
 Rules:
 
 - This is the function to attach to a daily time-driven Apps Script trigger.
 - The function must call all lower-level helper methods required by the API import.
 - If future implementation splits work into multiple helpers, this wrapper remains the single scheduled entry point.
-- The function must fail without clearing `llistat_anual` if the API call, XLSX conversion, or header detection fails.
+- The function must fail without modifying `llistat_anual` if the API call, XLSX conversion, header detection, or destination-header validation fails.
 - Secrets must not be logged.
 
 Reference terminal command currently used by the user:
@@ -172,7 +194,7 @@ Required properties:
 | --- | --- |
 | `tracking_report_api_url` | API endpoint URL for the tracking report download. Default/current value: `https://automation.hetzner.iernestlluch.info/api/v1/dinantia/tracking/export`. |
 | `tracking_report_bearer` | Bearer token used in the `Authorization` header. |
-| `tracking_report_school_year` | School year sent in the JSON body, for example `2025-26`. |
+| `tracking_report_school_year` | Value sent by the unattended `refreshIncidentTableFromApi` function. The manual API action uses its selected UI value instead. |
 
 API request shape:
 
@@ -182,9 +204,10 @@ API request shape:
 | URL | `{tracking_report_api_url}` |
 | Authorization header | `Bearer {tracking_report_bearer}` |
 | Content-Type header | `application/json` |
-| Body | `{"school_year":"{tracking_report_school_year}"}` |
+| Body for manual update | `{"school_year":"Avui"}`, `{"school_year":"Ahir"}`, `{"school_year":"Últims 7 dies"}`, or `{"school_year":"2026-27"}` |
+| Body for scheduled update | `{"school_year":"{tracking_report_school_year}"}` |
 
-The API response must be treated as an XLSX file and passed through the same conversion and replacement pipeline as a manual upload.
+The API response must be treated as an XLSX file and passed through the same conversion and date-window replacement pipeline as a manual upload.
 
 ## API Failure Handling
 
@@ -203,7 +226,7 @@ Failure cases:
 If the API returns a not-OK HTTP status:
 
 - Do not run the import.
-- Do not clear `llistat_anual`.
+- Do not modify `llistat_anual`.
 - Show an API failure message.
 - Include full non-secret response details available to Apps Script.
 
@@ -264,7 +287,7 @@ After import, `Incidències -> llistat_anual` should contain:
 | Row | Content |
 | --- | --- |
 | 1 | Detected incident header row |
-| 2+ | Rows below the detected header row |
+| 2+ | Existing rows outside the refreshed interval, followed by all imported rows |
 
 The destination must not contain metadata rows above the header.
 
@@ -276,35 +299,39 @@ The importer should not recalculate scores. Score calculation belongs to the end
 
 ## Validation
 
-Reject or stop before replacing the destination if:
+Reject or stop before modifying the destination if:
 
 - File is not readable as `.xlsx`.
 - XLSX conversion to a temporary Google Spreadsheet fails.
 - The converted first worksheet is empty.
 - Required incident header row is not found.
 - Required incident headers are duplicated.
+- The source contains no nonblank incident rows.
+- Any nonblank source row has blank or invalid `Data`.
+- A non-empty destination does not have the canonical headers in row 1 and in the expected order.
 
 The import process should not validate each data row before copying. In particular, do not scan every row for:
 
 - blank `Id`
 - invalid `Puntuació`
-- invalid `Data`
 - unresolved `Grups`
 
-Those checks belong to later reporting/endpoint validation, not the import step. The import step finds the header row and copies the resulting table.
+Those checks belong to later reporting/endpoint validation, not the import step. `Data` is the exception because the importer requires it to calculate a safe replacement interval.
 
 ## Safety
 
-Because this import replaces the whole destination table:
+Because the import replaces an interval:
 
-- Confirm the file can be converted and read before clearing `llistat_anual`.
-- Prefer a clear confirmation step before replacement.
-- If implementation supports it, keep a timestamped backup or restore point before clearing.
-- Never partially clear the destination if uploaded data cannot be written.
-- Report how many rows were imported.
+- Confirm the file can be converted and read before modifying `llistat_anual`.
+- Calculate and validate the complete source interval before modifying the destination.
+- Keep a clear confirmation step before replacement.
+- Preserve every existing row outside the inclusive interval.
+- Perform the destination read and replacement inside the script lock.
+- Write the complete final table before clearing obsolete trailing cells.
+- Report the refreshed interval, imported-row count, and removed-row count.
 
 ## Access Control
 
 The upload/import UI should use the same `access_granted` role/email authorization source as the endpoint.
 
-Unauthorized users must not be able to upload, preview, or replace data.
+Unauthorized users must not be able to upload, preview, or refresh data.

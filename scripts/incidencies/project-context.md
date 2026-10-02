@@ -59,7 +59,7 @@ Planned `Equip 3R`: full-month weekday-only calendar page over `3r_project`, loa
 
 Planned `Expulsions`: page over `expulsions`, loaded from the left menu. Student search text box offers on-the-fly matching names/surnames from existing `expulsions.student` values, then shows read-only columns `id`, `date`, `student`, `class`, `start_date`, `return_date`, `incident`, and `document`; render `document` as a link.
 
-Planned import flow: authorized user uses a Refresh icon action to open `Upload and update` or `API update`. Both sources produce an XLSX tracking report; the system detects the incident header row dynamically, discards rows above it, clears `Incidències -> llistat_anual`, and replaces it with the header row plus rows below it. API config lives in script properties: URL `https://automation.hetzner.iernestlluch.info/api/v1/dinantia/tracking/export`, bearer token, and school year. Scheduled daily refresh entry point should be `refreshIncidentTableFromApi`.
+Planned import flow: authorized user uses a Refresh icon action to open `Upload and update` or `API update`. Manual API update offers the exact `school_year` values `Avui`, `Ahir`, `Últims 7 dies`, and `2026-27`; the selected value is sent unchanged. The scheduled refresh uses the `tracking_report_school_year` script property. Both sources produce an XLSX tracking report; the system detects the incident header row dynamically, discards rows above it, validates `Data` in every nonblank row, and calculates the earliest/latest imported dates. Under a script lock, it preserves existing `llistat_anual` rows outside that inclusive interval, removes every existing row inside it, and writes all imported rows. Empty imports or invalid incoming dates fail without modifying the destination. API URL and bearer config live in script properties. Scheduled daily refresh entry point is `refreshIncidentTableFromApi`.
 
 Planned refactor: keep behavior stable while improving maintainability and speed. Target split: structural constants in `00_Config.js`, user strings in `01_Strings.js`, generic DB connector in `10_Database.js`, date/format/response/timing helpers in `11_*.js` to `14_*.js`, thin web wrappers in `20_WebApp.js`, domain services by workflow (`ConfigService`, `IncidentService`, `MeetingRecordService`, `StudyGroupService`, `ThirdProjectService`, `ExpulsionService`, `ImportService`), document/email services, and HTML split into `Index.html`, `UiStyles.html`, `UiScripts.html`. Performance priorities: CacheService for registry/config, fewer `google.script.run` round trips, batch simple writes, locks around next-ID appends, read only needed columns where reasonable, client-side page caching, and timing logs before/after optimization. Full detail: `docs/architecture-performance-refactor.md`.
 
@@ -102,7 +102,7 @@ Supporting helpers:
 - `docs/incidents-annual-list.md`: main incidents table spec.
 - `docs/incidents-config.md`: endpoint configuration table spec.
 - `docs/incident-points-endpoint.md`: endpoint behavior and UI spec.
-- `docs/incidents-xlsx-import.md`: upload and replace-import behavior spec.
+- `docs/incidents-xlsx-import.md`: upload/API date-window replacement behavior spec.
 - `docs/student-incident-detail-popup.md`: clicked-student incident detail modal spec.
 - `docs/meeting-records.md`: meeting/restorative measure records table spec.
 - `docs/meeting-summary.md`: copy-ready meeting summary popup spec.

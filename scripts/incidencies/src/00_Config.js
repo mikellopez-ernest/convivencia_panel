@@ -22,6 +22,12 @@ const INCIDENT_CONFIG_CACHE_KEY = 'incidents-config:v1';
 const TRACKING_REPORT_API_URL_PROPERTY = 'tracking_report_api_url';
 const TRACKING_REPORT_BEARER_PROPERTY = 'tracking_report_bearer';
 const TRACKING_REPORT_SCHOOL_YEAR_PROPERTY = 'tracking_report_school_year';
+const TRACKING_REPORT_MANUAL_PERIOD_OPTIONS = Object.freeze([
+  'Avui',
+  'Ahir',
+  'Últims 7 dies',
+  '2026-27'
+]);
 
 const ACCESS_GRANTED_PROPERTY_NAME = 'access_granted';
 const WORKLOAD_TABLE_NAME = 'Càrrega lectiva';

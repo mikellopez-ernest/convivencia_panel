@@ -278,6 +278,15 @@
           </div>
           <div class="modal-body">
             <div id="importAlert" class="alert d-none" role="alert"></div>
+            <div id="apiSchoolYearField" class="mb-3 d-none">
+              <label class="form-label" for="apiSchoolYear">Període de l'informe</label>
+              <select id="apiSchoolYear" class="form-select">
+                <option value="Avui">Avui</option>
+                <option value="Ahir">Ahir</option>
+                <option value="Últims 7 dies">Últims 7 dies</option>
+                <option value="2026-27">2026-27</option>
+              </select>
+            </div>
             <dl id="importSummary" class="row mb-0 d-none">
               <dt class="col-sm-4">Origen</dt>
               <dd id="importSource" class="col-sm-8"></dd>
@@ -285,8 +294,12 @@
               <dd id="importFile" class="col-sm-8"></dd>
               <dt class="col-sm-4">Fila de capçalera</dt>
               <dd id="importHeaderRow" class="col-sm-8"></dd>
-              <dt class="col-sm-4">Files copiades</dt>
+              <dt class="col-sm-4">Files importades</dt>
               <dd id="importRows" class="col-sm-8"></dd>
+              <dt class="col-sm-4">Files eliminades</dt>
+              <dd id="importDeletedRows" class="col-sm-8"></dd>
+              <dt class="col-sm-4">Període actualitzat</dt>
+              <dd id="importDateRange" class="col-sm-8"></dd>
             </dl>
             <div id="importDiagnostics" class="mt-3 d-none">
               <div class="fw-semibold mb-2">Detalls</div>
@@ -299,7 +312,7 @@
           </div>
           <div class="modal-footer">
             <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Tancar</button>
-            <button id="confirmImportButton" class="btn btn-danger d-none" type="button">Substituir llistat_anual</button>
+            <button id="confirmImportButton" class="btn btn-primary d-none" type="button">Actualitzar incidències</button>
           </div>
         </div>
       </div>
